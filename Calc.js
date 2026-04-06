@@ -142,7 +142,7 @@ javascript:(function(){
         }
     };
 
-    const allowedPattern = /^[0-9+\-*/^().√%a-zA-Zπ]*$/;
+    const allowedPattern = /^[0-9+\-*/^().%a-zA-Z√πϕ]*$/;
 
     output.addEventListener('beforeinput', (e) => {
         if (e.inputType.startsWith('delete')) return;
@@ -447,6 +447,7 @@ javascript:(function(){
             pi:  { type: 'const', value: Math.PI },
             e:   { type: 'const', value: Math.E },
             'π':  { type: 'const', value: Math.PI },
+            'ϕ':  { type: 'const', value: (1 + Math.sqrt(5)) / 2 },
             ans: { type: 'const', value: lastAnswer },
 
             sin: { type: 'func', fn: Math.sin },
@@ -486,11 +487,15 @@ javascript:(function(){
 
         function parseIdentifier() {
             let start = i;
-            while (i < s.length && /[a-zπ√]/i.test(s[i])) i++;
+            while (i < s.length && /[a-zπ√ϕ]/i.test(s[i])) i++;
             return s.slice(start, i);
         }
 
         function parsePower() {
+            if (i < s.length && s[i] === '-') {
+                i++;
+                return -parseBase();
+            }
             let value = parseBase();
 
             while (i < s.length) {
@@ -526,11 +531,6 @@ javascript:(function(){
         }
 
         function parseBase() {
-            if (i < s.length && s[i] === '-') {
-                i++;
-                return -parseBase();
-            }
-
             if (s[i] === '√') {
                 i++;
                 const radicand = parsePower();
@@ -538,7 +538,7 @@ javascript:(function(){
                 return Math.sqrt(radicand);
             }
 
-            if (/[a-zπ]/i.test(s[i])) {
+            if (/[a-zπϕ]/i.test(s[i])) {
                 const name = parseIdentifier().toLowerCase();
                 const entry = IDENTIFIERS[name];
 
