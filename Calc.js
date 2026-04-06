@@ -388,19 +388,7 @@ javascript:(function(){
                     if (op === '*') value *= next;
                     else if (op === '/') value /= next;
                     else value %= next;
-                }else if (s[i] === '√') {
-                    if (typeof value === 'number') {
-                        i++;
-
-                        const next = parsePower();
-                        if (isNaN(next)) return NaN;
-
-                        value = Math.pow(next, 1 / value);
-                    } else {
-                        break;
-                    }
-                }
-                else if (startsFactor()) {
+                } else if (startsFactor()) {
                     const next = parsePower();
                     if (isNaN(next)) return NaN;
                     value *= next;
@@ -435,7 +423,6 @@ javascript:(function(){
 
             let start = i;
             while (i < s.length && /[0-9.]/.test(s[i])) i++;
-
 
             if (i < s.length && s[i].toLowerCase() === 'e') {
                 let next = s[i + 1];
@@ -505,6 +492,7 @@ javascript:(function(){
                 const exponent = parsePower();
                 value = Math.pow(value, exponent);
             }
+
             return value;
         }
 
@@ -514,6 +502,23 @@ javascript:(function(){
                 return -parseBase();
             }
 
+            if (/[0-9.]/.test(s[i])) {
+                const n = parseFactor();
+                if (s[i] === '√') {
+                    i++;
+                    const x = parseBase();
+                    return Math.pow(x, 1 / n);
+                }
+                return n;
+            }
+
+            if (s[i] === '√') {
+                i++;
+                const x = parseBase();
+                if (x < 0) return NaN;
+                return Math.sqrt(x);
+            }
+
             if (/[a-z]/i.test(s[i])) {
                 const name = parseIdentifier().toLowerCase();
                 const entry = IDENTIFIERS[name];
@@ -521,10 +526,11 @@ javascript:(function(){
                 if (entry) {
                     if (entry.type === 'const') return entry.value;
                     if (entry.type === 'func') {
-                        const arg = parseBase(); 
+                        const arg = parseBase();
                         return entry.fn(arg);
                     }
                 }
+
                 return variables[name] ?? NaN;
             }
 
