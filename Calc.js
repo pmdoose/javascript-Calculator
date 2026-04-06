@@ -142,7 +142,7 @@ javascript:(function(){
         }
     };
 
-    const allowedPattern = /^[0-9+\-*/^().√%a-zA-Z]*$/;
+    const allowedPattern = /^[0-9+\-*/^().√%a-zA-Zπ]*$/;
 
     output.addEventListener('beforeinput', (e) => {
         if (e.inputType.startsWith('delete')) return;
@@ -175,10 +175,7 @@ javascript:(function(){
             return;
         }
 
-        const nextValue =
-            output.value.slice(0, start) +
-            insert +
-            output.value.slice(end);
+        const nextValue = output.value.slice(0, start) + insert + output.value.slice(end);
 
         if (!allowedPattern.test(nextValue)) {
             e.preventDefault();
@@ -201,8 +198,8 @@ javascript:(function(){
             if (output.value === '') {
                 history.value = '';
                 lastAnswer = '';
-
             }
+
             output.value = '';
             output.setSelectionRange(0, 0);
         }
@@ -422,25 +419,34 @@ javascript:(function(){
             }
 
             let start = i;
-            while (i < s.length && /[0-9.]/.test(s[i])) i++;
+            let dotCount = 0;
+
+            while (i < s.length && /[0-9.]/.test(s[i])) {
+                if (s[i] === '.') dotCount++;
+                if (dotCount > 1) return NaN;
+                i++;
+            }
 
             if (i < s.length && s[i].toLowerCase() === 'e') {
-                let next = s[i + 1];
-                let afterNext = s[i + 2];
-                if (/[0-9]/.test(next) || (/[+-]/.test(next) && /[0-9]/.test(afterNext))) {
-                    i++;
-                    if (/[+-]/.test(s[i])) i++;
-                    while (i < s.length && /[0-9]/.test(s[i])) i++;
-                }
+                i++;
+                if (i < s.length && /[+-]/.test(s[i])) i++;
+                let digitsStart = i;
+                while (i < s.length && /[0-9]/.test(s[i])) i++;
+                if (digitsStart === i) return NaN;
             }
 
             if (start === i) return NaN;
-            return parseFloat(s.slice(start, i));
+            const numStr = s.slice(start, i);
+
+            if (!/^\d*\.?\d+(e[+-]?\d+)?$/i.test(numStr)) return NaN;
+
+            return parseFloat(numStr);
         }
 
         const IDENTIFIERS = {
             pi:  { type: 'const', value: Math.PI },
             e:   { type: 'const', value: Math.E },
+            'π':  { type: 'const', value: Math.PI },
             ans: { type: 'const', value: lastAnswer },
 
             sin: { type: 'func', fn: Math.sin },
@@ -480,17 +486,40 @@ javascript:(function(){
 
         function parseIdentifier() {
             let start = i;
-            while (i < s.length && /[a-z]/i.test(s[i])) i++;
+            while (i < s.length && /[a-zπ√]/i.test(s[i])) i++;
             return s.slice(start, i);
         }
 
         function parsePower() {
             let value = parseBase();
 
-            while (i < s.length && s[i] === '^') {
-                i++;
-                const exponent = parsePower();
-                value = Math.pow(value, exponent);
+            while (i < s.length) {
+                const op = s[i];
+
+                if (op === '^') {
+                    i++;
+                    const exponent = parsePower();
+                    value = Math.pow(value, exponent);
+                }
+
+                else if (op === '√') {
+                    i++;
+                    const degree = value;
+                    const radicand = parsePower();
+
+                    if (degree === 0) return NaN;
+
+                    if (radicand < 0) {
+                        if (degree % 2 === 0) return NaN;
+                        value = -Math.pow(-radicand, 1 / degree);
+                    } else {
+                        value = Math.pow(radicand, 1 / degree);
+                    }
+                }
+
+                else {
+                    break;
+                }
             }
 
             return value;
@@ -502,24 +531,14 @@ javascript:(function(){
                 return -parseBase();
             }
 
-            if (/[0-9.]/.test(s[i])) {
-                const n = parseFactor();
-                if (s[i] === '√') {
-                    i++;
-                    const x = parseBase();
-                    return Math.pow(x, 1 / n);
-                }
-                return n;
-            }
-
             if (s[i] === '√') {
                 i++;
-                const x = parseBase();
-                if (x < 0) return NaN;
-                return Math.sqrt(x);
+                const radicand = parsePower();
+                if (radicand < 0) return NaN;
+                return Math.sqrt(radicand);
             }
 
-            if (/[a-z]/i.test(s[i])) {
+            if (/[a-zπ]/i.test(s[i])) {
                 const name = parseIdentifier().toLowerCase();
                 const entry = IDENTIFIERS[name];
 
