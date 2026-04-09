@@ -1,9 +1,11 @@
-javascript:(function(){
+javascript:(function() {
     const dlg_name = '__Calculator__';
-
-    if (document.getElementById(dlg_name)) return;
+    const existingDlg = document.getElementById(dlg_name);
+    if (existingDlg) {
+        existingDlg.remove();
+        return;
+    }
     let lastAnswer = '';
-
     const dlg = document.createElement('dialog');
     dlg.open = true;
     dlg.id = dlg_name;
@@ -14,81 +16,62 @@ javascript:(function(){
         top:100px;
         left:100px;
         padding:0;
-        border:none;border-radius:
-        10px;
+        border:none;
+        border-radius:10px;
         background:#111 !important;
         color:#559 !important;
         font-family:Arial;
         box-shadow:0 10px 30px rgba(0,0,0,.5);
         z-index:10000;
-        overflow:hidden;`;
-
+        overflow:hidden;
+    `;
     const baselineRatio = window.devicePixelRatio || 1;
-
     let currentScale = 1;
-
     const adjustZoom = () => {
         const currentRatio = window.devicePixelRatio || 1;
         const relativeZoom = currentRatio / baselineRatio;
-
         currentScale = 1 / relativeZoom;
         dlg.style.transform = `scale(${currentScale})`;
     };
-
     window.addEventListener('resize', adjustZoom);
     adjustZoom();
-
     const header = document.createElement('div');
     header.style.cssText = 'padding:10px;background:#222 !important;cursor:move;font-size:22px;font-weight:bold;border-radius:10px 10px 0 0;user-select:none;';
-
     const title = document.createElement('span');
-    title.textContent =  'Calculator';
+    title.textContent = 'Calculator';
     header.appendChild(title);
-
     const close = document.createElement('span');
     close.textContent = '✕';
     close.style.cssText = 'float:right;cursor:pointer;margin-left:10px';
-    close.onclick = () => {
-        dlg.remove();
-    };
+    close.onclick = () => { dlg.remove(); };
     header.appendChild(close);
     dlg.appendChild(header);
-
     header.onpointerdown = (e) => {
         if (e.target === close) return;
-
         header.setPointerCapture(e.pointerId);
         e.preventDefault();
-
         let shiftX = e.clientX - dlg.offsetLeft;
         let shiftY = e.clientY - dlg.offsetTop;
-
         const onPointerMove = (e) => {
-
             const newX = e.clientX - shiftX;
             const newY = e.clientY - shiftY;
-
             dlg.style.left = newX + 'px';
             dlg.style.top = newY + 'px';
         };
-
         const onPointerUp = () => {
             document.removeEventListener('pointermove', onPointerMove);
             document.removeEventListener('pointerup', onPointerUp);
             document.removeEventListener('pointercancel', onPointerUp);
             header.releasePointerCapture(e.pointerId);
         };
-
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
         document.addEventListener('pointercancel', onPointerUp);
     };
-
     const body = document.createElement('div');
     body.style.cssText = 'padding:20px;font-size:14px;text-align:center;width:280px;';
     dlg.append(body);
     document.body.appendChild(dlg);
-
     const history = document.createElement('input');
     history.type = 'text';
     history.readOnly = true;
@@ -96,12 +79,12 @@ javascript:(function(){
     history.spellcheck = false;
     history.style.cssText = `
         width:100% !important;
-        height: 18px !important;
+        height:25px !important;
         box-sizing:border-box;
         padding:10px !important;
-        font-size:12px !important;
+        font-size:14px !important;
         margin-bottom:0px !important;
-        text-align:left !important;
+        text-align:right !important;
         background:#222 !important;
         color:#559 !important;
         border:none !important;
@@ -111,7 +94,6 @@ javascript:(function(){
         cursor:pointer;
     `;
     body.appendChild(history);
-
     const output = document.createElement('input');
     output.type = 'text';
     output.readOnly = false;
@@ -119,7 +101,7 @@ javascript:(function(){
     output.spellcheck = false;
     output.style.cssText = `
         width:100% !important;
-        height: 40px !important;
+        height:40px !important;
         box-sizing:border-box;
         padding:10px !important;
         font-size:18px !important;
@@ -132,7 +114,6 @@ javascript:(function(){
         caret-color:#559 !important;
     `;
     body.appendChild(output);
-
     history.ondblclick = () => {
         if (history.value) {
             output.value = history.value;
@@ -141,29 +122,21 @@ javascript:(function(){
             output.focus();
         }
     };
-
-    const allowedPattern = /^[0-9+\-*/^().%a-zA-Z√πϕ]*$/;
-
+    const allowedPattern = /^[0-9+\-*/^().%a-zA-Z√πϕ\s]*$/;
     output.addEventListener('beforeinput', (e) => {
         if (e.inputType.startsWith('delete')) return;
-
         const start = output.selectionStart ?? 0;
         const end = output.selectionEnd ?? 0;
-
         let insert = e.data;
-
         if (e.inputType === 'insertFromPaste') {
             insert = (e.clipboardData || window.clipboardData)?.getData('text') || '';
         }
-
         if (insert == null) {
             const startPos = output.selectionStart;
             const endPos = output.selectionEnd;
-
             setTimeout(() => {
                 if (!allowedPattern.test(output.value)) {
-                    output.value = output.value.replace(/[^0-9+\-*/^().]/g, '');
-
+                    output.value = output.value.replace(/[^0-9+\-*/^().%a-zA-Z√πϕ\s]/g, '');
                     if (startPos != null && endPos != null) {
                         const len = output.value.length;
                         const newStart = Math.min(startPos, len);
@@ -174,49 +147,55 @@ javascript:(function(){
             });
             return;
         }
-
         const nextValue = output.value.slice(0, start) + insert + output.value.slice(end);
-
-        if (!allowedPattern.test(nextValue)) {
-            e.preventDefault();
-        }
+        if (!allowedPattern.test(nextValue)) e.preventDefault();
     });
-
     output.addEventListener('keydown', (e) => {
+        const operators = ['+', '-', '*', '/', '^', '%'];
         if (e.key === 'Enter' || e.key === '=') {
             e.preventDefault();
-
-            const result = evaluate(output.value);
-            output.value = result;
-
-            const pos = output.value.length;
-            output.setSelectionRange(pos, pos);
+            const expr = output.value;
+            const result = evaluate(expr);
+            history.value = `${result}`;
             output.focus();
+            output.setSelectionRange(output.value.length, output.value.length);
+            return;
         }
-
         if (e.key === 'Escape') {
             if (output.value === '') {
                 history.value = '';
                 lastAnswer = '';
             }
-
             output.value = '';
             output.setSelectionRange(0, 0);
+            return;
+        }
+        if (operators.includes(e.key) && output.value.trim() === '') {
+            e.preventDefault();
+            output.value = `${e.key}`;
+            const pos = output.value.length;
+            output.setSelectionRange(pos, pos);
+            return;
         }
     });
-
     const buttons = [
-        ['Clear', '(', ')','⌫'],
+        ['Clear', '(', ')', '⌫'],
         ['√', '^', 'Ans', '%'],
         ['7', '8', '9', '/'],
         ['4', '5', '6', '*'],
         ['1', '2', '3', '-'],
         ['0', '.', '=', '+']
     ];
-
-    keypadHeight = 1000;
+    const ERROR_STATES = new Set([
+        'Syntax Error',
+        'NaN',
+        'Infinity',
+        '-Infinity',
+        'Too Long'
+    ]);
+    const keypadHeight = 1000;
     const keypad = document.createElement('div');
-        keypad.style.cssText = `
+    keypad.style.cssText = `
         display: grid;
         grid-template-rows: repeat(${buttons.length}, 40px);
         overflow: hidden;
@@ -224,13 +203,9 @@ javascript:(function(){
         opacity: 1;
         transition: max-height 0.3s ease, opacity 0.3s ease;
     `;
-
     buttons.forEach(row => {
         const rowDiv = document.createElement('div');
-        rowDiv.style.cssText = `
-            display: flex;
-            justify-content: center;
-        `;
+        rowDiv.style.cssText = `display: flex; justify-content: center;`;
         row.forEach(btn => {
             const button = document.createElement('button');
             button.textContent = btn;
@@ -238,7 +213,7 @@ javascript:(function(){
                 width:50px !important;
                 height:30px !important;
                 margin:5px !important;
-                padding: 0 !important;
+                padding:0 !important;
                 font-size:18px !important;
                 border:none !important;
                 border-radius:4px !important;
@@ -246,30 +221,19 @@ javascript:(function(){
                 color:#7b7bb7 !important;
                 cursor:pointer;
                 transition:background 0.2s, color 0.2s, transform 0.1s;
-                `;
-
+            `;
             button.onclick = () => {
                 output.focus();
-
                 let start = output.selectionStart ?? output.value.length;
                 let end = output.selectionEnd ?? output.value.length;
                 let val = output.value;
-
-                const setCursor = (pos) => {
-                    output.setSelectionRange(pos, pos);
-                };
-
+                const setCursor = (pos) => output.setSelectionRange(pos, pos);
                 switch (btn) {
                     case 'Clear':
-                        if (output.value === '') {
-                            history.value = '';
-                            lastAnswer = '';
-                            
-                        }
+                        if (output.value === '') { history.value = ''; lastAnswer = ''; }
                         output.value = '';
-                        output.setSelectionRange(0, 0);
+                        setCursor(0);
                         break;
-
                     case '⌫':
                         if (start === end && start > 0) {
                             output.value = val.slice(0, start - 1) + val.slice(end);
@@ -279,20 +243,24 @@ javascript:(function(){
                             setCursor(start);
                         }
                         break;
-
                     case '=':
-                        output.value = evaluate(val);
+                        const expr = val;
+                        const result = evaluate(expr);
+                        history.value = `${result}`;
                         setCursor(output.value.length);
                         break;
-
+                    case '+': case '-': case '*': case '/': case '^': case '%':
+                        if (output.value.trim() === '') {
+                            output.value = `${btn}`;
+                            setCursor(output.value.length);
+                        } else {
+                            const newVal = val.slice(0, start) + btn + val.slice(end);
+                            output.value = newVal;
+                            setCursor(start + btn.length);
+                        }
+                        break;
                     default:
-                        if (
-                            val === 'Syntax Error' ||
-                            val === 'NaN' ||
-                            val === 'Infinity' ||
-                            val === '-Infinity' ||
-                            val === 'Too Long'
-                        ) {
+                        if (ERROR_STATES.has(val)) {
                             output.value = btn;
                             setCursor(1);
                         } else {
@@ -303,33 +271,19 @@ javascript:(function(){
                         break;
                 }
             };
-
-            button.onpointerover = () => {
-                button.style.setProperty('background', '#444', 'important');
-                button.style.setProperty('color', '#9999ff', 'important');
-            };
-
-            button.onpointerout = () => {
-                button.style.setProperty('background', '#333', 'important');
-                button.style.setProperty('color', '#7b7bb7', 'important');
-            };
-
+            button.onpointerover = () => { button.style.setProperty('background', '#444', 'important'); button.style.setProperty('color', '#9999ff', 'important'); };
+            button.onpointerout = () => { button.style.setProperty('background', '#333', 'important'); button.style.setProperty('color', '#7b7bb7', 'important'); };
             button.onpointerdown = () => button.style.setProperty('transform', 'scale(0.95)', 'important');
-
             button.onpointerup = () => button.style.setProperty('transform', 'scale(1)', 'important');
-
             rowDiv.appendChild(button);
         });
         keypad.appendChild(rowDiv);
     });
-
     body.appendChild(keypad);
-    
     const toggleBar = document.createElement('span');
     toggleBar.style.cssText = 'color:#559 !important; cursor:pointer; text-align:center; font-size:10px; padding:4px; user-select:none;';
     toggleBar.innerText = '▲ HIDE KEYPAD ▲';
     body.appendChild(toggleBar);
-
     toggleBar.onclick = () => {
         if (keypad.style.maxHeight === '0px') {
             keypad.style.maxHeight = `${keypadHeight}px`;
@@ -341,41 +295,30 @@ javascript:(function(){
             toggleBar.innerText = '▼ SHOW KEYPAD ▼';
         }
     };
-    
     function evaluate(expr) {
         if (!expr.trim()) return '';
-
         let i = 0;
-        if (expr.length > 200) return 'Too Long';
+        if (expr.length > 1024) return 'Too Long';
         const s = expr.replace(/\s+/g, '');
-
         function parseExpression() {
             let value = parseTerm();
-
             while (i < s.length) {
                 const op = s[i];
                 if (op !== '+' && op !== '-') break;
                 i++;
-
                 const next = parseTerm();
                 if (isNaN(next)) return NaN;
-
                 value = op === '+' ? value + next : value - next;
             }
-
             return value;
         }
-
         function parseTerm() {
             let value;
-
             if (i < s.length && s[i] === '-') {
-                i++;
-                value = -parseTerm();
-            } else {
-                value = parsePower();
+                i++; 
+                value = -parseTerm(); 
             }
-
+            else { value = parsePower(); }
             while (i < s.length) {
                 const op = s[i];
                 if (op === '*' || op === '/' || op === '%') {
@@ -389,26 +332,15 @@ javascript:(function(){
                     const next = parsePower();
                     if (isNaN(next)) return NaN;
                     value *= next;
-                }  else {
-                    break;
-                }
+                } else { break; }
             }
             return value;
         }
-
         function startsFactor() {
             if (i >= s.length) return false;
-
             const c = s[i];
-            return (
-                c === '(' ||
-                c === '√' ||
-                c === '.' ||
-                (c >= '0' && c <= '9') ||
-                ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
-            );
+            return (c === '(' || c === '√' || c === '.' || (c >= '0' && c <= '9') || ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')));
         }
-
         function parseFactor() {
             if (i < s.length && s[i] === '(') {
                 i++;
@@ -417,16 +349,13 @@ javascript:(function(){
                 i++;
                 return value;
             }
-
             let start = i;
             let dotCount = 0;
-
             while (i < s.length && /[0-9.]/.test(s[i])) {
                 if (s[i] === '.') dotCount++;
                 if (dotCount > 1) return NaN;
                 i++;
             }
-
             if (i < s.length && s[i].toLowerCase() === 'e') {
                 i++;
                 if (i < s.length && /[+-]/.test(s[i])) i++;
@@ -434,141 +363,93 @@ javascript:(function(){
                 while (i < s.length && /[0-9]/.test(s[i])) i++;
                 if (digitsStart === i) return NaN;
             }
-
             if (start === i) return NaN;
             const numStr = s.slice(start, i);
-
             if (!/^\d*\.?\d+(e[+-]?\d+)?$/i.test(numStr)) return NaN;
-
             return parseFloat(numStr);
         }
-
         const IDENTIFIERS = {
-            pi:  { type: 'const', value: Math.PI },
-            e:   { type: 'const', value: Math.E },
-            'π':  { type: 'const', value: Math.PI },
-            'ϕ':  { type: 'const', value: (1 + Math.sqrt(5)) / 2 },
+            pi: { type: 'const', value: Math.PI },
+            e: { type: 'const', value: Math.E },
+            'π': { type: 'const', value: Math.PI },
+            'ϕ': { type: 'const', value: (1 + Math.sqrt(5)) / 2 },
             ans: { type: 'const', value: lastAnswer },
-
             sin: { type: 'func', fn: Math.sin },
             cos: { type: 'func', fn: Math.cos },
-            tan: { type: 'func', fn: (x) => {
-                const v = Math.tan(x);
-                return Math.abs(v) > 1e10 ? Infinity : v;
-            }},
-
-            csc: { type: 'func', fn: (x) => {
-                const v = 1 / Math.sin(x);
-                return Math.abs(v) > 1e10 ? Infinity : v;
-            }},
-            sec: { type: 'func', fn: (x) => {
-                const v = 1 / Math.cos(x);
-                return Math.abs(v) > 1e10 ? Infinity : v;
-            }},
-            cot: { type: 'func', fn: (x) => {
-                const v = 1 / Math.tan(x);
-                return Math.abs(v) > 1e10 ? Infinity : v;
-            }},
-
+            tan: { type: 'func', fn: x => { const v = Math.tan(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
+            csc: { type: 'func', fn: x => { const v = 1 / Math.sin(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
+            sec: { type: 'func', fn: x => { const v = 1 / Math.cos(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
+            cot: { type: 'func', fn: x => { const v = 1 / Math.tan(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
             asin: { type: 'func', fn: Math.asin },
             acos: { type: 'func', fn: Math.acos },
             atan: { type: 'func', fn: Math.atan },
-
             sinh: { type: 'func', fn: Math.sinh },
             cosh: { type: 'func', fn: Math.cosh },
             tanh: { type: 'func', fn: Math.tanh },
-
             sqrt: { type: 'func', fn: Math.sqrt },
-            ln:   { type: 'func', fn: Math.log },
-            log:  { type: 'func', fn: Math.log10 },
+            ln: { type: 'func', fn: Math.log },
+            log: { type: 'func', fn: Math.log10 }
         };
-
         const variables = Object.create(null);
-
         function parseIdentifier() {
             let start = i;
-            while (i < s.length && /[a-zπ√ϕ]/i.test(s[i])) i++;
+            while (i < s.length && /[a-zπϕ]/i.test(s[i])) i++;
             return s.slice(start, i);
         }
-
         function parsePower() {
-            if (i < s.length && s[i] === '-') {
-                i++;
-                return -parseBase();
-            }
             let value = parseBase();
-
             while (i < s.length) {
                 const op = s[i];
-
-                if (op === '^') {
-                    i++;
-                    const exponent = parsePower();
-                    value = Math.pow(value, exponent);
-                }
-
-                else if (op === '√') {
-                    i++;
-                    const degree = value;
-                    const radicand = parsePower();
-
-                    if (degree === 0) return NaN;
-
-                    if (radicand < 0) {
-                        if (degree % 2 === 0) return NaN;
-                        value = -Math.pow(-radicand, 1 / degree);
+                if (op === '^') { 
+                    i++; 
+                    const exponent = parsePower(); 
+                    value = Math.pow(value, exponent); 
+                } else if (op === '√') { 
+                    i++; 
+                    const degree = value; 
+                    let radicand;
+                    if (i < s.length && s[i] === '-') {
+                        i++;
+                        radicand = -parsePower();
                     } else {
-                        value = Math.pow(radicand, 1 / degree);
+                        radicand = parsePower();
                     }
-                }
-
-                else {
-                    break;
-                }
+                    if (degree === 0) return NaN;
+                    if (radicand < 0) { 
+                        if (degree % 2 === 0) return NaN; 
+                        value = -Math.pow(-radicand, 1 / degree); 
+                    } else value = Math.pow(radicand, 1 / degree);
+                } else break;
             }
-
             return value;
         }
-
         function parseBase() {
-            if (s[i] === '√') {
-                i++;
-                const radicand = parsePower();
+            if (s[i] === '√') { 
+                i++; const radicand = parsePower();
                 if (radicand < 0) return NaN;
-                return Math.sqrt(radicand);
-            }
-
+                    return Math.sqrt(radicand);
+                }
             if (/[a-zπϕ]/i.test(s[i])) {
                 const name = parseIdentifier().toLowerCase();
                 const entry = IDENTIFIERS[name];
-
                 if (entry) {
-                    if (entry.type === 'const') return entry.value;
-                    if (entry.type === 'func') {
-                        const arg = parseBase();
-                        return entry.fn(arg);
+                    if (entry.type === 'const')
+                        return entry.value;
+                    if (entry.type === 'func') { 
+                        const arg = parseBase(); 
+                        return entry.fn(arg); 
                     }
                 }
-
                 return variables[name] ?? NaN;
             }
-
             return parseFactor();
         }
-
         const result = parseExpression();
-
-        history.value = expr;
+        if (Number.isNaN(result)) return 'NaN';
         if (i !== s.length) return 'Syntax Error';
-        if (!isFinite(result)) return String(result);
-        if (!isNaN(result)) {
-            lastAnswer = result;
-            if (result !== 0 && (Math.abs(result) < 1e-9 || Math.abs(result) > 1e12)) {
-                return result.toPrecision(10); 
-            }
-            return Number(result.toFixed(10));
-        }
-
-        return 'NaN';
+        if (!Number.isFinite(result)) return String(result);
+        lastAnswer = result;
+        if (result !== 0 && (Math.abs(result) < 1e-9 || Math.abs(result) > 1e12)) return result.toPrecision(10);
+        return Number(result.toFixed(10));
     }
 })();
