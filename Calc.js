@@ -1,4 +1,5 @@
 javascript:(function() {
+    /* --- Prevent multiple instances --- */
     const dlg_name = '__Calc__';
     if (window[dlg_name]) {
         return;
@@ -116,6 +117,7 @@ javascript:(function() {
     title.textContent = 'Calculator';
     header.appendChild(title);
 
+    /* Close Button */
     const close = document.createElement('span');
     close.textContent = '✕';
     close.style.cssText = 'float:right;cursor:pointer;margin-left:10px';
@@ -125,23 +127,31 @@ javascript:(function() {
 
     /* Drag Logic */
     header.onpointerdown = (e) => {
+        /* Don't start dragging if the close button was clicked */
         if (e.target === close) return;
+        /* Capture pointer events to track dragging outside the header element */
         header.setPointerCapture(e.pointerId);
         e.preventDefault();
+        /* Calculate the initial offset between the pointer and the dialog's top-left corner */
         let shiftX = e.clientX - dlg.offsetLeft;
         let shiftY = e.clientY - dlg.offsetTop;
+        /* Define handlers for pointer move and pointer up events to update the dialog's position and stop dragging */
         const onPointerMove = (e) => {
+            /* Calculate the new position of the dialog based on the current pointer position and the initial offset, and update the dialog's CSS to move it */
             const newX = e.clientX - shiftX;
             const newY = e.clientY - shiftY;
+            /* Optional: Add bounds checking here to prevent the dialog from being dragged off-screen */
             dlg.style.left = newX + 'px';
             dlg.style.top = newY + 'px';
         };
+        /* When the pointer is released or the drag is canceled, remove the event listeners and release pointer capture to stop tracking the drag */
         const onPointerUp = () => {
             document.removeEventListener('pointermove', onPointerMove);
             document.removeEventListener('pointerup', onPointerUp);
             document.removeEventListener('pointercancel', onPointerUp);
             header.releasePointerCapture(e.pointerId);
         };
+        /* Add event listeners to track pointer movement and release during the drag operation */
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
         document.addEventListener('pointercancel', onPointerUp);
@@ -174,6 +184,7 @@ javascript:(function() {
     input.className = 'calc-display';
     displayContainer.appendChild(input);
 
+    /* Handle Enter key to evaluate expression. (used for equals as well to make operations consistent) */
     function  evaluateAndDisplay(){
         try {
             const result = evaluate(input.value);
@@ -190,8 +201,7 @@ javascript:(function() {
         }
     });
 
-    /* Create scientific buttons */
-
+    /* Helper function to insert text at the cursor position in the input field, and smartly place the cursor for functions with parentheses */
     function insertAtCursor(input, text) {
         const start = input.selectionStart;
         const end = input.selectionEnd;
@@ -215,37 +225,45 @@ javascript:(function() {
 
     let ans = 0; /* Store last answer for Ans button */
 
+    /* Define scientific buttons */
     const sciButtons = [[
+        /* Trigonometric Functions (Arity 1) */
         { label: 'sin', onClick: () => insertAtCursor(input, 'sin()') },
         { label: 'cos', onClick: () => insertAtCursor(input, 'cos()') },
         { label: 'tan', onClick: () => insertAtCursor(input, 'tan()') },
         { label: 'log', onClick: () => insertAtCursor(input, 'log()') },
         
     ],[
+        /* Reciprocal Trigonometric Functions (Arity 1) */
         { label: 'asin', onClick: () => insertAtCursor(input, 'asin()') },
         { label: 'acos', onClick: () => insertAtCursor(input, 'acos()') },
         { label: 'atan', onClick: () => insertAtCursor(input, 'atan()') },
         { label: 'ln', onClick: () => insertAtCursor(input, 'ln()') },
         
     ],[
+        /* Hyperbolic Functions (Arity 1) */
         { label: 'sinh', onClick: () => insertAtCursor(input, 'sinh()') },
         { label: 'cosh', onClick: () => insertAtCursor(input, 'cosh()') },
         { label: 'tanh', onClick: () => insertAtCursor(input, 'tanh()') },
         { label: '√', onClick: () => insertAtCursor(input, '√') },
         
     ],[
+        /* Other Scientific Functions and Constants */
         { label: 'xʸ', onClick: () => insertAtCursor(input, '^') },
         { label: 'e', onClick: () => insertAtCursor(input, 'e') },
         { label: 'π', onClick: () => insertAtCursor(input, 'π') },
         { label: 'exp', onClick: () => insertAtCursor(input, 'exp()') }
     ],[
+        /* Absolute Value, Parentheses, and Ans */
         { label: 'abs', onClick: () => insertAtCursor(input, 'abs()') },
         { label: '(', onClick: () => insertAtCursor(input, '(') },
         { label: ')', onClick: () => insertAtCursor(input, ')') },
         { label: 'Ans', onClick: () => insertAtCursor(input, 'ans') }
     ]];
 
+    /* Create basic buttons */
     const basicButtons = [[
+        /* Clear, Percentage, Backspace */
         { label: 'AC', onClick: () => { input.value = '';  output.value = ''; ans = 0; input.focus()} },
         { label: 'C', onClick: () => { input.value = ''; input.focus()} },
         { label: '%', onClick: () => insertAtCursor(input, '%') },
@@ -265,40 +283,51 @@ javascript:(function() {
             input.focus();
         } }
     ], [
+        /* Row of digits and division operator */
         { label: '7', onClick: () => insertAtCursor(input, '7') },
         { label: '8', onClick: () => insertAtCursor(input, '8') },
         { label: '9', onClick: () => insertAtCursor(input, '9') },
         { label: '/', onClick: () => insertAtCursor(input, '/') }
     ],[
+        /* Row of digits and multiplication operator */
         { label: '4', onClick: () => insertAtCursor(input, '4') },
         { label: '5', onClick: () => insertAtCursor(input, '5') },
         { label: '6', onClick: () => insertAtCursor(input, '6') },
         { label: '*', onClick: () => insertAtCursor(input, '*') }
     ],[
+        /* Row of digits and subtraction operator */
         { label: '1', onClick: () => insertAtCursor(input, '1') },
         { label: '2', onClick: () => insertAtCursor(input, '2') },
         { label: '3', onClick: () => insertAtCursor(input, '3') },
         { label: '-', onClick: () => insertAtCursor(input, '-') }
     ],[
+        /* Row of digits, decimal point, equals, and addition operator */
         { label: '.', onClick: () => insertAtCursor(input, '.') },
         { label: '0', onClick: () => insertAtCursor(input, '0') },
         { label: '=', onClick: () => evaluateAndDisplay() },
         { label: '+', onClick: () => insertAtCursor(input, '+') }
     ]];
 
+    /* Helper to create collapsible button containers for scientific and basic keypads */
     function createCollapseButtonContainer(buttons, label = '', hidden = false) {
+        /* Create a container for the buttons with a toggle bar to show/hide it */
         const container = document.createElement('div');
+        /* Set up styles for the container to allow collapsing with a smooth transition */
         container.className = 'btn-container';
         container.style.cssText = 'overflow:hidden; transition:max-height 0.3s ease, opacity 0.3s ease;';
 
+        /* Calculate the max height based on the number of button rows, and set initial state based on "hidden" parameter */
         const keypadHeight = buttons.length * 40 + 10; /* 40px per row + padding */
         container.style.maxHeight = `${(hidden) ? 0 : keypadHeight}px`;
         container.style.opacity = '1';
 
+        /* Create button elements for each button in the provided "buttons" array and append them to the container */
         buttons.forEach(row => {
+            /* Create a div for each row of buttons and apply the "calc-btn-row" class for styling */
             const rowDiv = document.createElement('div');
             rowDiv.className = 'calc-btn-row';
 
+            /* Create a button element for each button in the row, set its label and click handler, and append it to the row div */
             row.forEach(button => {
                 const buttonElement = document.createElement('button');
                 buttonElement.className = 'calc-btn';
@@ -307,6 +336,7 @@ javascript:(function() {
                 rowDiv.appendChild(buttonElement);
             });
 
+            /* Append the completed row div to the container */
             container.appendChild(rowDiv);
         });
 
@@ -331,6 +361,7 @@ javascript:(function() {
         return container;
     }
 
+    /* Create collapsible scientific and basic keypads */
     const sciKeypad = createCollapseButtonContainer(sciButtons, 'Scientific', true);
     const basicKeypad = createCollapseButtonContainer(basicButtons, 'Basic', false);
 
@@ -522,11 +553,12 @@ javascript:(function() {
             if (!isNaN(token)) return true;
             if (lookup[token]?.args === 0) return true;
             if (token === '(') return true;
-            if (token === 'y√x') return false;
+            if (token === 'y√x') return false; /* special case: y√x is left-associative and should not trigger implicit multiplication */
             if (lookup[token]?.args > 0 && lookup[token]?.prec === 10) return true;
             return false;
         };
 
+        /* First pass: handle unary operators, implicit multiplication, and y√x */
         for (let i = 0; i < tokens.length; i++) {
             let token = tokens[i];
             const prevOriginal = tokens[i - 1];
@@ -575,31 +607,38 @@ javascript:(function() {
     function evaluateRPN(rpn) {
         const stack = [];
 
+        /* Process each token in the RPN expression */
         rpn.forEach(t => {
             const item = lookup[t];
 
+            /* If it's an operator or function, pop the required number of operands and apply it */
             if (item && item.args > 0) {
                 if (stack.length < item.args) {
                     throw new Error(`Insufficient operands for "${t}"`);
                 }
 
+                /* Pop arguments in reverse order for correct application */
                 const args = [];
                 for (let i = 0; i < item.args; i++) {
                     args.unshift(stack.pop());
                 }
 
+                /* Execute the operator/function and push the result back on the stack */
                 const result = item.exec(...args);
 
+                /* Check for invalid results (e.g., division by zero, domain errors) */
                 if (!Number.isFinite(result)) {
                     throw new Error(`Invalid result from "${t}"`);
                 }
 
                 stack.push(result);
             } else {
+                /* If it's a number or constant, parse it and push its value */
                 const value = item && item.args === 0
                     ? item.exec()
                     : parseFloat(t);
 
+                /* Check for invalid tokens (e.g., unrecognized identifiers) */
                 if (Number.isNaN(value)) {
                     throw new Error(`Invalid token "${t}"`);
                 }
@@ -608,6 +647,7 @@ javascript:(function() {
             }
         });
 
+        /* After processing all tokens, there should be exactly one result on the stack */
         if (stack.length !== 1) {
             throw new Error("Invalid expression");
         }
@@ -616,16 +656,19 @@ javascript:(function() {
     }
 
     function validateFunctionCalls(tokens) {
+        /* Regex to identify valid identifiers (e.g., function names) */
         const identifierRegex = /^[a-zA-Z\u0370-\u03FF]+$/;
 
+        /* Iterate through tokens to find identifiers and ensure they are valid functions followed by parentheses */
         for (let i = 0; i < tokens.length; i++) {
             const t = tokens[i];
             const next = tokens[i + 1];
             const entry = lookup[t];
 
+            /* Check if the token is an identifier (potential function name) */
             const isIdentifier = identifierRegex.test(t);
 
-            /* Reject unknown identifiers (e.g., "now", "foo") */
+            /* Reject unknown identifiers */
             if (isIdentifier && !entry) {
                 throw new Error(`Unknown identifier: ${t}`);
             }
@@ -640,17 +683,24 @@ javascript:(function() {
     }
 
     function evaluate(expr) {
+        /* Tokenize the input expression */
         const tokens = expr.match(regex);
+        /* Validate function calls before transformation to catch issues like "sin 30" or unknown identifiers */
         if (!tokens) {
             throw new Error("Invalid or empty expression");
         }
+        /* Validate that all identifiers are known and that functions are properly called with parentheses */
         validateFunctionCalls(tokens);
+        /* Transform tokens to handle unary operators, implicit multiplication, and special cases */
         const transformed = transformTokens(tokens);
+        /* Convert the transformed tokens to Reverse Polish Notation (RPN) for easier evaluation */
         const rpn = toRPN(transformed);
+        /* Evaluate the RPN expression to get the final result */
         const result = evaluateRPN(rpn);
 
         ans = result; /* Store last answer for Ans button */
 
+        /* Format the result: if it's very small or very large, use scientific notation with 10 significant digits; otherwise, round to 10 decimal places */
         if (result !== 0 && (Math.abs(result) < 1e-9 || Math.abs(result) > 1e12)) return result.toPrecision(10);
         return Number(result.toFixed(10));
     }
