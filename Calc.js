@@ -401,11 +401,11 @@ javascript:(function() {
         '√':    {type: 'operator', args: 1, assoc: null, exec: (x) => {
                 if (x < 0) throw new Error("Square root domain error");
                 return Math.sqrt(x);
-            }, prec: 10 },
+            }, prec: 4 },
         'y√x':  {type: 'operator', args: 2, assoc: null, exec: (y, x) => {
                 if (x < 0 && y % 2 === 0) throw new Error("Square root domain error");
                 return Math.pow(x, 1/y);
-            }, prec: 10 },
+            }, prec: 4 },
     };
 
     function toRPN(tokens) {
