@@ -533,7 +533,7 @@ javascript:(function() {
             const prevTransformed = result[result.length - 1];
 
 
-            /* 1. Identify Unary Plus/Minus */
+            /* Identify Unary Plus/Minus */
             if (token === '+' || token === '-') {
                 const isUnary =
                     !prevOriginal ||
@@ -545,7 +545,7 @@ javascript:(function() {
                 }
             }
 
-            /* 2. Identify Nth Root (y√x) */
+            /* Identify Nth Root (y√x) */
             if (token === '√') {
                 const isNthRoot =
                     prevOriginal &&
@@ -558,7 +558,7 @@ javascript:(function() {
                 }
             }
 
-            /* 3. Insert Implicit Multiplication */
+            /* Insert Implicit Multiplication */
             if (prevTransformed && isLeftValue(prevTransformed) && isRightValue(token)) {
                 result.push('*');
             }
