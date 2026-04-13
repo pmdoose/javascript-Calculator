@@ -1,11 +1,48 @@
 javascript:(function() {
-    const dlg_name = '__Calculator__';
-    const existingDlg = document.getElementById(dlg_name);
-    if (existingDlg) {
-        existingDlg.remove();
+    const dlg_name = '__Calc__';
+    if (window[dlg_name]) {
         return;
     }
-    let lastAnswer = '';
+
+    /** --- Define styles for repeated elements --- */
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+        .calc-btn {
+            width:50px !important;
+            height:30px !important;
+            margin:5px !important;
+            padding:0 !important;
+            font-size:18px !important;
+            border:none !important;
+            border-radius:4px !important;
+            background:#333 !important;
+            color:#7b7bb7 !important;
+            cursor:pointer;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+            transition:background 0.2s, color 0.2s, transform 0.1s;
+        }
+
+        .calc-btn:active {
+            box-shadow: 0 0px 0 rgba(0,0,0,0.25);
+            transform: translateY(2px) scale(0.96);
+        }
+
+        .calc-display {
+            width: 100%;
+            height: 30px;
+            margin-bottom: 1px;
+            padding: 5px;
+            font-size: 18px;
+            text-align: right;
+            border: none;
+            border-radius: 4px;
+            background: #222;
+            color: #7b7bb7;
+        }`;
+
+    document.head.appendChild(styleSheet);
+
+    /* Create Calculator Dialog */
     const dlg = document.createElement('dialog');
     dlg.open = true;
     dlg.id = dlg_name;
@@ -15,7 +52,6 @@ javascript:(function() {
         position:fixed;
         top:100px;
         left:100px;
-        padding:0;
         border:none;
         border-radius:10px;
         background:#111 !important;
@@ -25,6 +61,8 @@ javascript:(function() {
         z-index:10000;
         overflow:hidden;
     `;
+
+    /* Handle Zoom Scaling */
     const baselineRatio = window.devicePixelRatio || 1;
     let currentScale = 1;
     const adjustZoom = () => {
@@ -35,17 +73,32 @@ javascript:(function() {
     };
     window.addEventListener('resize', adjustZoom);
     adjustZoom();
+
+    /* Create header */
     const header = document.createElement('div');
-    header.style.cssText = 'padding:10px;background:#222 !important;cursor:move;font-size:22px;font-weight:bold;border-radius:10px 10px 0 0;user-select:none;';
+    header.style.cssText = `
+        padding:10px;
+        background:#222 !important;
+        cursor:move;
+        font-size:22px;
+        font-weight:bold;
+        border-radius:10px 10px 0 0;
+        user-select:none;
+    `;
+
+    /* Make Draggable header */
     const title = document.createElement('span');
     title.textContent = 'Calculator';
     header.appendChild(title);
+
     const close = document.createElement('span');
     close.textContent = '✕';
     close.style.cssText = 'float:right;cursor:pointer;margin-left:10px';
     close.onclick = () => { dlg.remove(); };
     header.appendChild(close);
     dlg.appendChild(header);
+
+    /* Drag Logic */
     header.onpointerdown = (e) => {
         if (e.target === close) return;
         header.setPointerCapture(e.pointerId);
@@ -68,387 +121,504 @@ javascript:(function() {
         document.addEventListener('pointerup', onPointerUp);
         document.addEventListener('pointercancel', onPointerUp);
     };
+
+    /* eate Dialog Body */
     const body = document.createElement('div');
     body.style.cssText = 'padding:20px;font-size:14px;text-align:center;width:280px;';
     dlg.append(body);
     document.body.appendChild(dlg);
-    const history = document.createElement('input');
-    history.type = 'text';
-    history.readOnly = true;
-    history.autocomplete = 'off';
-    history.spellcheck = false;
-    history.style.cssText = `
-        width:100% !important;
-        height:25px !important;
-        box-sizing:border-box;
-        padding:10px !important;
-        font-size:14px !important;
-        margin-bottom:0px !important;
-        text-align:right !important;
-        background:#222 !important;
-        color:#559 !important;
-        border:none !important;
-        border-radius:4px !important;
-        caret-color:transparent;
-        user-select:none;
-        cursor:pointer;
-    `;
-    body.appendChild(history);
+
+    /* create display container */
+    const displayContainer = document.createElement('div');
+    displayContainer.style.cssText = 'display:flex;flex-direction:column;margin-bottom:20px;';
+    body.appendChild(displayContainer); 
+
+    /* Create Display Output */
     const output = document.createElement('input');
     output.type = 'text';
-    output.readOnly = false;
-    output.autocomplete = 'off';
-    output.spellcheck = false;
-    output.style.cssText = `
-        width:100% !important;
-        height:40px !important;
-        box-sizing:border-box;
-        padding:10px !important;
-        font-size:18px !important;
-        margin-bottom:10px !important;
-        text-align:right !important;
-        background:#222 !important;
-        color:#559 !important;
-        border:1px solid #444 !important;
-        border-radius:4px !important;
-        caret-color:#559 !important;
-    `;
-    body.appendChild(output);
-    history.ondblclick = () => {
-        if (history.value) {
-            output.value = history.value;
-            const pos = output.value.length;
-            output.setSelectionRange(pos, pos);
-            output.focus();
+    output.className = 'calc-display';
+    output.tabIndex = -1;
+    output.readOnly = true;
+    output.style.height = '23px';
+    output.style.caretColor = 'transparent';
+    displayContainer.appendChild(output);
+
+    /* Create Input Display */
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'calc-display';
+    displayContainer.appendChild(input);
+
+    function  evaluateAndDisplay(){
+        try {
+            const result = evaluate(input.value);
+            output.value = result;
+        } catch (err) {
+            output.value = 'Error: ' + err.message;
         }
-    };
-    const allowedPattern = /^[0-9+\-*/^().%a-zA-Z√πϕ\s]*$/;
-    output.addEventListener('beforeinput', (e) => {
-        if (e.inputType.startsWith('delete')) return;
-        const start = output.selectionStart ?? 0;
-        const end = output.selectionEnd ?? 0;
-        let insert = e.data;
-        if (e.inputType === 'insertFromPaste') {
-            insert = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-        }
-        if (insert == null) {
-            const startPos = output.selectionStart;
-            const endPos = output.selectionEnd;
-            setTimeout(() => {
-                if (!allowedPattern.test(output.value)) {
-                    output.value = output.value.replace(/[^0-9+\-*/^().%a-zA-Z√πϕ\s]/g, '');
-                    if (startPos != null && endPos != null) {
-                        const len = output.value.length;
-                        const newStart = Math.min(startPos, len);
-                        const newEnd = Math.min(endPos, len);
-                        output.setSelectionRange(newStart, newEnd);
-                    }
-                }
-            });
-            return;
-        }
-        const nextValue = output.value.slice(0, start) + insert + output.value.slice(end);
-        if (!allowedPattern.test(nextValue)) e.preventDefault();
-    });
-    output.addEventListener('keydown', (e) => {
-        const operators = ['+', '-', '*', '/', '^', '%'];
-        if (e.key === 'Enter' || e.key === '=') {
-            e.preventDefault();
-            const expr = output.value;
-            const result = evaluate(expr);
-            history.value = `${result}`;
-            output.focus();
-            output.setSelectionRange(output.value.length, output.value.length);
-            return;
-        }
-        if (e.key === 'Escape') {
-            if (output.value === '') {
-                history.value = '';
-                lastAnswer = '';
-            }
-            output.value = '';
-            output.setSelectionRange(0, 0);
-            return;
-        }
-        if (operators.includes(e.key) && output.value.trim() === '') {
-            e.preventDefault();
-            output.value = `${e.key}`;
-            const pos = output.value.length;
-            output.setSelectionRange(pos, pos);
-            return;
+        input.focus();
+    }
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            evaluateAndDisplay();
         }
     });
-    const buttons = [
-        ['Clear', '(', ')', '⌫'],
-        ['√', '^', 'Ans', '%'],
-        ['7', '8', '9', '/'],
-        ['4', '5', '6', '*'],
-        ['1', '2', '3', '-'],
-        ['0', '.', '=', '+']
-    ];
-    const ERROR_STATES = new Set([
-        'Syntax Error',
-        'NaN',
-        'Infinity',
-        '-Infinity',
-        'Too Long'
-    ]);
-    const keypadHeight = 1000;
-    const keypad = document.createElement('div');
-    keypad.style.cssText = `
-        display: grid;
-        grid-template-rows: repeat(${buttons.length}, 40px);
-        overflow: hidden;
-        max-height: ${keypadHeight}px;
-        opacity: 1;
-        transition: max-height 0.3s ease, opacity 0.3s ease;
-    `;
-    buttons.forEach(row => {
-        const rowDiv = document.createElement('div');
-        rowDiv.style.cssText = `display: flex; justify-content: center;`;
-        row.forEach(btn => {
-            const button = document.createElement('button');
-            button.textContent = btn;
-            button.style.cssText = `
-                width:50px !important;
-                height:30px !important;
-                margin:5px !important;
-                padding:0 !important;
-                font-size:18px !important;
-                border:none !important;
-                border-radius:4px !important;
-                background:#333 !important;
-                color:#7b7bb7 !important;
-                cursor:pointer;
-                transition:background 0.2s, color 0.2s, transform 0.1s;
-            `;
-            button.onclick = () => {
-                output.focus();
-                let start = output.selectionStart ?? output.value.length;
-                let end = output.selectionEnd ?? output.value.length;
-                let val = output.value;
-                const setCursor = (pos) => output.setSelectionRange(pos, pos);
-                switch (btn) {
-                    case 'Clear':
-                        if (output.value === '') { history.value = ''; lastAnswer = ''; }
-                        output.value = '';
-                        setCursor(0);
-                        break;
-                    case '⌫':
-                        if (start === end && start > 0) {
-                            output.value = val.slice(0, start - 1) + val.slice(end);
-                            setCursor(start - 1);
-                        } else {
-                            output.value = val.slice(0, start) + val.slice(end);
-                            setCursor(start);
-                        }
-                        break;
-                    case '=':
-                        const expr = val;
-                        const result = evaluate(expr);
-                        history.value = `${result}`;
-                        setCursor(output.value.length);
-                        break;
-                    case '+': case '-': case '*': case '/': case '^': case '%':
-                        if (output.value.trim() === '') {
-                            output.value = `${btn}`;
-                            setCursor(output.value.length);
-                        } else {
-                            const newVal = val.slice(0, start) + btn + val.slice(end);
-                            output.value = newVal;
-                            setCursor(start + btn.length);
-                        }
-                        break;
-                    default:
-                        if (ERROR_STATES.has(val)) {
-                            output.value = btn;
-                            setCursor(1);
-                        } else {
-                            const newVal = val.slice(0, start) + btn + val.slice(end);
-                            output.value = newVal;
-                            setCursor(start + btn.length);
-                        }
-                        break;
-                }
-            };
-            button.onpointerover = () => { button.style.setProperty('background', '#444', 'important'); button.style.setProperty('color', '#9999ff', 'important'); };
-            button.onpointerout = () => { button.style.setProperty('background', '#333', 'important'); button.style.setProperty('color', '#7b7bb7', 'important'); };
-            button.onpointerdown = () => button.style.setProperty('transform', 'scale(0.95)', 'important');
-            button.onpointerup = () => button.style.setProperty('transform', 'scale(1)', 'important');
-            rowDiv.appendChild(button);
-        });
-        keypad.appendChild(rowDiv);
-    });
-    body.appendChild(keypad);
-    const toggleBar = document.createElement('span');
-    toggleBar.style.cssText = 'color:#559 !important; cursor:pointer; text-align:center; font-size:10px; padding:4px; user-select:none;';
-    toggleBar.innerText = '▲ HIDE KEYPAD ▲';
-    body.appendChild(toggleBar);
-    toggleBar.onclick = () => {
-        if (keypad.style.maxHeight === '0px') {
-            keypad.style.maxHeight = `${keypadHeight}px`;
-            keypad.style.opacity = '1';
-            toggleBar.innerText = '▲ HIDE KEYPAD ▲';
+
+    /* Create scientific buttons */
+
+    function insertAtCursor(input, text) {
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const val = input.value;
+
+        /* Splice the text into the current value */
+        input.value = val.substring(0, start) + text + val.substring(end);
+
+        /* Update the cursor position to be right after the inserted text */
+        const newPos = start + text.length;
+        
+        /* Smart placement: if you insert "sin()", put the cursor inside the "()" */
+        if (text.endsWith('()')) {
+            input.selectionStart = input.selectionEnd = newPos - 1;
         } else {
-            keypad.style.maxHeight = '0px';
-            keypad.style.opacity = '0';
-            toggleBar.innerText = '▼ SHOW KEYPAD ▼';
+            input.selectionStart = input.selectionEnd = newPos;
         }
-    };
-    function evaluate(expr) {
-        if (!expr.trim()) return '';
-        let i = 0;
-        if (expr.length > 1024) return 'Too Long';
-        const s = expr.replace(/\s+/g, '');
-        function parseExpression() {
-            let value = parseTerm();
-            while (i < s.length) {
-                const op = s[i];
-                if (op !== '+' && op !== '-') break;
-                i++;
-                const next = parseTerm();
-                if (isNaN(next)) return NaN;
-                value = op === '+' ? value + next : value - next;
+
+        input.focus();
+    }
+
+    let ans = 0; /* Store last answer for Ans button */
+
+    const sciButtons = [[
+        { label: 'sin', onClick: () => insertAtCursor(input, 'sin()') },
+        { label: 'cos', onClick: () => insertAtCursor(input, 'cos()') },
+        { label: 'tan', onClick: () => insertAtCursor(input, 'tan()') },
+        { label: 'log', onClick: () => insertAtCursor(input, 'log()') },
+        
+    ],[
+        { label: 'sina', onClick: () => insertAtCursor(input, 'csc()') },
+        { label: 'cosa', onClick: () => insertAtCursor(input, 'sec()') },
+        { label: 'tana', onClick: () => insertAtCursor(input, 'cot()') },
+        { label: 'ln', onClick: () => insertAtCursor(input, 'ln()') },
+        
+    ],[
+        { label: 'sinh', onClick: () => insertAtCursor(input, 'sinh()') },
+        { label: 'cosh', onClick: () => insertAtCursor(input, 'cosh()') },
+        { label: 'tanh', onClick: () => insertAtCursor(input, 'tanh()') },
+        { label: '√', onClick: () => insertAtCursor(input, '√') },
+        
+    ],[
+        { label: 'xʸ', onClick: () => insertAtCursor(input, '^') },
+        { label: 'e', onClick: () => insertAtCursor(input, 'e') },
+        { label: 'π', onClick: () => insertAtCursor(input, 'π') },
+        { label: 'exp', onClick: () => insertAtCursor(input, 'exp()') }
+    ],[
+        { label: 'abs', onClick: () => insertAtCursor(input, 'abs()') },
+        { label: '(', onClick: () => insertAtCursor(input, '(') },
+        { label: ')', onClick: () => insertAtCursor(input, ')') },
+        { label: 'Ans', onClick: () => insertAtCursor(input, 'ans') }
+    ]];
+
+    const basicButtons = [[
+        { label: 'AC', onClick: () => { input.value = '';  output.value = ''; ans = 0; input.focus()} },
+        { label: 'C', onClick: () => { input.value = ''; input.focus()} },
+        { label: '%', onClick: () => insertAtCursor(input, '%') },
+        { label: '⌫', onClick: () => {
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+
+            if (start === end && start > 0) {
+                /* No selection, delete character before cursor */
+                input.value = input.value.substring(0, start - 1) + input.value.substring(end);
+                input.selectionStart = input.selectionEnd = start - 1;
+            } else if (start !== end) {
+                /* Delete selected text */
+                input.value = input.value.substring(0, start) + input.value.substring(end);
+                input.selectionStart = input.selectionEnd = start;
             }
-            return value;
-        }
-        function parseTerm() {
-            let value;
-            if (i < s.length && s[i] === '-') {
-                i++; 
-                value = -parseTerm(); 
+            input.focus();
+        } }
+    ], [
+        { label: '7', onClick: () => insertAtCursor(input, '7') },
+        { label: '8', onClick: () => insertAtCursor(input, '8') },
+        { label: '9', onClick: () => insertAtCursor(input, '9') },
+        { label: '/', onClick: () => insertAtCursor(input, '/') }
+    ],[
+        { label: '4', onClick: () => insertAtCursor(input, '4') },
+        { label: '5', onClick: () => insertAtCursor(input, '5') },
+        { label: '6', onClick: () => insertAtCursor(input, '6') },
+        { label: '*', onClick: () => insertAtCursor(input, '*') }
+    ],[
+        { label: '1', onClick: () => insertAtCursor(input, '1') },
+        { label: '2', onClick: () => insertAtCursor(input, '2') },
+        { label: '3', onClick: () => insertAtCursor(input, '3') },
+        { label: '-', onClick: () => insertAtCursor(input, '-') }
+    ],[
+        { label: '.', onClick: () => insertAtCursor(input, '.') },
+        { label: '0', onClick: () => insertAtCursor(input, '0') },
+        { label: '=', onClick: () => evaluateAndDisplay() },
+        { label: '+', onClick: () => insertAtCursor(input, '+') }
+    ]];
+
+    function createCollapseButtonContainer(buttons, label = '', hidden = false) {
+        const container = document.createElement('div');
+        container.className = 'button-container';
+        container.style.cssText = 'overflow:hidden; transition:max-height 0.3s ease, opacity 0.3s ease;';
+
+        const keypadHeight = buttons.length * 40 + 10; /* 40px per row + padding */
+        container.style.maxHeight = `${(hidden) ? 0 : keypadHeight}px`;
+        container.style.opacity = '1';
+
+        buttons.forEach(row => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'button-row';
+
+            row.forEach(button => {
+                const buttonElement = document.createElement('button');
+                buttonElement.className = 'calc-btn';
+                buttonElement.textContent = button.label;
+                buttonElement.addEventListener('click', button.onClick);
+                rowDiv.appendChild(buttonElement);
+            });
+
+            container.appendChild(rowDiv);
+        });
+
+        const toggleBar = document.createElement('span');
+        toggleBar.style.cssText = 'color:#559 !important; cursor:pointer; text-align:center; font-size:10px; padding:4px; user-select:none;';
+        label = label.toUpperCase();
+        toggleBar.innerText = (hidden) ? `▼ SHOW ${label} KEYPAD ▼` : `▲ HIDE ${label} KEYPAD ▲`;
+        body.appendChild(toggleBar);
+        toggleBar.onclick = () => {
+            if (container.style.maxHeight === '0px') {
+                container.style.maxHeight = `${keypadHeight}px`;
+                container.style.opacity = '1';
+                toggleBar.innerText = `▲ HIDE ${label} KEYPAD ▲`;
+            } else {
+                container.style.maxHeight = '0px';
+                container.style.opacity = '0';
+                toggleBar.innerText = `▼ SHOW ${label} KEYPAD ▼`;
             }
-            else { value = parsePower(); }
-            while (i < s.length) {
-                const op = s[i];
-                if (op === '*' || op === '/' || op === '%') {
-                    i++;
-                    const next = parsePower();
-                    if (isNaN(next)) return NaN;
-                    if (op === '*') value *= next;
-                    else if (op === '/') value /= next;
-                    else value %= next;
-                } else if (startsFactor()) {
-                    const next = parsePower();
-                    if (isNaN(next)) return NaN;
-                    value *= next;
-                } else { break; }
-            }
-            return value;
-        }
-        function startsFactor() {
-            if (i >= s.length) return false;
-            const c = s[i];
-            return (c === '(' || c === '√' || c === '.' || (c >= '0' && c <= '9') || ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')));
-        }
-        function parseFactor() {
-            if (i < s.length && s[i] === '(') {
-                i++;
-                const value = parseExpression();
-                if (s[i] !== ')') return "Syntax Error";
-                i++;
-                return value;
-            }
-            let start = i;
-            let dotCount = 0;
-            while (i < s.length && /[0-9.]/.test(s[i])) {
-                if (s[i] === '.') dotCount++;
-                if (dotCount > 1) return NaN;
-                i++;
-            }
-            if (i < s.length && s[i].toLowerCase() === 'e') {
-                i++;
-                if (i < s.length && /[+-]/.test(s[i])) i++;
-                let digitsStart = i;
-                while (i < s.length && /[0-9]/.test(s[i])) i++;
-                if (digitsStart === i) return NaN;
-            }
-            if (start === i) return NaN;
-            const numStr = s.slice(start, i);
-            if (!/^\d*\.?\d+(e[+-]?\d+)?$/i.test(numStr)) return NaN;
-            return parseFloat(numStr);
-        }
-        const IDENTIFIERS = {
-            pi: { type: 'const', value: Math.PI },
-            e: { type: 'const', value: Math.E },
-            'π': { type: 'const', value: Math.PI },
-            'ϕ': { type: 'const', value: (1 + Math.sqrt(5)) / 2 },
-            ans: { type: 'const', value: lastAnswer },
-            sin: { type: 'func', fn: Math.sin },
-            cos: { type: 'func', fn: Math.cos },
-            tan: { type: 'func', fn: x => { const v = Math.tan(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
-            csc: { type: 'func', fn: x => { const v = 1 / Math.sin(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
-            sec: { type: 'func', fn: x => { const v = 1 / Math.cos(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
-            cot: { type: 'func', fn: x => { const v = 1 / Math.tan(x); return Math.abs(v) > 1e10 ? Infinity : v; } },
-            asin: { type: 'func', fn: Math.asin },
-            acos: { type: 'func', fn: Math.acos },
-            atan: { type: 'func', fn: Math.atan },
-            sinh: { type: 'func', fn: Math.sinh },
-            cosh: { type: 'func', fn: Math.cosh },
-            tanh: { type: 'func', fn: Math.tanh },
-            sqrt: { type: 'func', fn: Math.sqrt },
-            ln: { type: 'func', fn: Math.log },
-            log: { type: 'func', fn: Math.log10 }
         };
-        const variables = Object.create(null);
-        function parseIdentifier() {
-            let start = i;
-            while (i < s.length && /[a-zπϕ]/i.test(s[i])) i++;
-            return s.slice(start, i);
-        }
-        function parsePower() {
-            let value = parseBase();
-            while (i < s.length) {
-                const op = s[i];
-                if (op === '^') { 
-                    i++; 
-                    const exponent = parsePower(); 
-                    value = Math.pow(value, exponent); 
-                } else if (op === '√') { 
-                    i++; 
-                    const degree = value; 
-                    let radicand;
-                    if (i < s.length && s[i] === '-') {
-                        i++;
-                        radicand = -parsePower();
+
+        body.appendChild(container);
+        return container;
+    }
+
+    const sciKeypad = createCollapseButtonContainer(sciButtons, 'Scientific', true);
+    const basicKeypad = createCollapseButtonContainer(basicButtons, 'Basic', false);
+
+
+    /* --- calculator Logic --- */
+
+    /* safety margin for floating point comparisons */
+    const EPSILON = 1e-12;
+
+    const lookup = {
+    /* --- Constants (Arity 0) --- */
+        'π':   {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
+        'pi':  {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
+        'e':   {type: 'constant', args: 0, assoc: null, exec: () => Math.E, prec: 0},
+        'ans': {type: 'constant', args: 0, assoc: null, exec: () => ans, prec: 0},
+
+    /* --- Basic Operators (Arity 2) --- */
+        '+':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a + b, prec: 2 },
+        '-':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a - b, prec: 2 },
+        '*':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a * b, prec: 3 },
+        '/':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a / b, prec: 3 },
+        '%':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a % b, prec: 3,},
+        '^':   {type: 'operator', args: 2, assoc: 'r', exec: (a, b) => Math.pow(a, b), prec: 6,},
+
+    /* --- Unary Operators (Arity 1) --- */
+        '-u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => -x, prec: 4 },
+        '+u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => +x, prec: 4 },
+
+    /* --- Absolute Value (Arity 1) --- */
+        'abs': {type: 'function', args: 1, assoc: null, exec: (x) => Math.abs(x), prec: 10 },
+
+    /* --- Scientific Functions (Arity 1) --- */
+        'sin': {type: 'function', args: 1, assoc: null, exec: (x) => Math.sin(x), prec: 10 },
+        'cos': {type: 'function', args: 1, assoc: null, exec: (x) => Math.cos(x), prec: 10 },
+        'tan': {type: 'function', args: 1, assoc: null, exec: (x) => Math.tan(x), prec: 10 },
+    /* --- reciprocal trigonometric functions (Arity 1) --- */
+        'csc': {type: 'function', args: 1, assoc: null, exec: (x) => {
+                const s = Math.sin(x);
+                if (Math.abs(s) < EPSILON) {
+                    throw new Error('csc undefined: sin(x) = 0');
+                }
+                return 1 / s;
+            }, prec: 10 },
+        'sec': {type: 'function', args: 1, assoc: null, exec: (x) => {
+                const c = Math.cos(x);
+                if (Math.abs(c) < EPSILON) {
+                    throw new Error('sec undefined: cos(x) = 0');
+                }
+                return 1 / c;
+            }, prec: 10 },
+        'cot': {type: 'function', args: 1, assoc: null, exec: (x) => {
+                const t = Math.tan(x);
+                if (Math.abs(t) < EPSILON) {
+                    throw new Error('cot undefined: tan(x) = 0');
+                }
+                return 1 / t;
+            }, prec: 10 },
+    /* --- Inverse Trigonometric Functions (Arity 1) --- */
+        'asin': {type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x < -1 || x > 1) {
+                    throw new Error('asin domain error: input must be in [-1, 1]');
+                }
+                return Math.asin(x);
+            }, prec: 10 },
+        'acos': {type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x < -1 || x > 1) {
+                    throw new Error('acos domain error: input must be in [-1, 1]');
+                }
+                return Math.acos(x);
+            }, prec: 10 },
+        'atan': {type: 'function', args: 1, assoc: null, exec: (x) => Math.atan(x), prec: 10 },
+    /* --- Hyperbolic Functions (Arity 1) --- */
+        'sinh': {type: 'function', args: 1, assoc: null, exec: (x) => Math.sinh(x), prec: 10 },
+        'cosh': {type: 'function', args: 1, assoc: null, exec: (x) => Math.cosh(x), prec: 10 },
+        'tanh': {type: 'function', args: 1, assoc: null, exec: (x) => Math.tanh(x), prec: 10 },
+
+    /* --- Logarithmic and Exponential Functions (Arity 1) --- */
+        'log':{type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x <= 0) throw new Error("log domain error");
+                return Math.log10(x);
+            }, prec: 10 },
+        'ln':   {type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x <= 0) throw new Error("ln domain error");
+                return Math.log(x); 
+            }, prec: 10 },
+        'exp':  {type: 'function', args: 1, assoc: null, exec: (x) => Math.exp(x), prec: 10 },
+
+    /* --- Square Root (Arity 1 or 2) --- */
+        'sqrt': {type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x < 0) throw new Error("Square root domain error");
+                return Math.sqrt(x);
+            }, prec: 10 },
+        '√':    {type: 'operator', args: 1, assoc: null, exec: (x) => {
+                if (x < 0) throw new Error("Square root domain error");
+                return Math.sqrt(x);
+            }, prec: 10 },
+        'y√x':  {type: 'operator', args: 2, assoc: null, exec: (y, x) => {
+                if (x < 0 && y % 2 === 0) throw new Error("Square root domain error");
+                return Math.pow(x, 1/y);
+            }, prec: 10 },
+    };
+
+    function toRPN(tokens) {
+        const outputQueue = [];
+        const opStack = [];
+
+        tokens.forEach(token => {
+            const info = lookup[token];
+
+            /* If it's a number, push to output */
+            if (!isNaN(token) || (info && info.args === 0)) {
+                outputQueue.push(token);
+            } 
+            
+            /* If it's a function (prec 10), push to opStack */
+            else if (info && info.prec === 10) {
+                opStack.push(token);
+            }
+
+            /* If it's an operator (+, -, *, /, ^, etc.) */
+            else if (info && info.args > 0) {
+                while (opStack.length > 0) {
+                    const top = opStack[opStack.length - 1];
+                    const topInfo = lookup[top];
+                    
+                    if (!topInfo || top === '(') break;
+
+                    /* Move operators to output based on Precedence and Associativity */
+                    if ((info.assoc === 'l' && info.prec <= topInfo.prec) ||
+                        (info.assoc === 'r' && info.prec < topInfo.prec)) {
+                        outputQueue.push(opStack.pop());
                     } else {
-                        radicand = parsePower();
-                    }
-                    if (degree === 0) return NaN;
-                    if (radicand < 0) { 
-                        if (degree % 2 === 0) return NaN; 
-                        value = -Math.pow(-radicand, 1 / degree); 
-                    } else value = Math.pow(radicand, 1 / degree);
-                } else break;
-            }
-            return value;
-        }
-        function parseBase() {
-            if (s[i] === '√') { 
-                i++; const radicand = parsePower();
-                if (radicand < 0) return NaN;
-                    return Math.sqrt(radicand);
-                }
-            if (/[a-zπϕ]/i.test(s[i])) {
-                const name = parseIdentifier().toLowerCase();
-                const entry = IDENTIFIERS[name];
-                if (entry) {
-                    if (entry.type === 'const')
-                        return entry.value;
-                    if (entry.type === 'func') { 
-                        const arg = parseBase(); 
-                        return entry.fn(arg); 
+                        break;
                     }
                 }
-                return variables[name] ?? NaN;
+                opStack.push(token);
             }
-            return parseFactor();
+
+            /* Handle Parentheses */
+            else if (token === '(') {
+                opStack.push(token);
+            } 
+            else if (token === ')') {
+                while (opStack.length > 0 && opStack[opStack.length - 1] !== '(') {
+                    outputQueue.push(opStack.pop());
+                }
+                opStack.pop(); /* Discard the '(' */
+
+                /* If a function was waiting for this paren group, move it to output */
+                if (opStack.length > 0) {
+                    const top = opStack[opStack.length - 1];
+                    if (lookup[top] && lookup[top].prec === 10) {
+                        outputQueue.push(opStack.pop());
+                    }
+                }
+            }
+        });
+
+        /* Pop remaining operators */
+        while (opStack.length > 0) {
+            outputQueue.push(opStack.pop());
         }
-        const result = parseExpression();
-        if (Number.isNaN(result)) return 'NaN';
-        if (i !== s.length) return 'Syntax Error';
-        if (!Number.isFinite(result)) return String(result);
-        lastAnswer = result;
+
+        return outputQueue;
+    }
+
+    function transformTokens(tokens) {
+        const result = [];
+
+        /* Determines if a token represents a value that can appear on the left */
+        const isLeftValue = (token) => {
+            if (!token) return false;
+            if (!isNaN(token)) return true;
+            if (lookup[token]?.args === 0) return true;
+            if (token === ')') return true;
+            return false;
+        };
+
+        /* Determines if a token can start a value on the right */
+        const isRightValue = (token) => {
+            if (!token) return false;
+            if (!isNaN(token)) return true;
+            if (lookup[token]?.args === 0) return true;
+            if (token === '(') return true;
+            if (token === 'y√x') return false;
+            if (lookup[token]?.args > 0 && lookup[token]?.prec === 10) return true;
+            return false;
+        };
+
+        for (let i = 0; i < tokens.length; i++) {
+            let token = tokens[i];
+            const prevOriginal = tokens[i - 1];
+            const prevTransformed = result[result.length - 1];
+
+
+            /* 1. Identify Unary Plus/Minus */
+            if (token === '+' || token === '-') {
+                const isUnary =
+                    !prevOriginal ||
+                    prevOriginal === '(' ||
+                    (lookup[prevOriginal]?.args > 0 && prevOriginal !== ')');
+
+                if (isUnary) {
+                    token = token === '-' ? '-u' : '+u';
+                }
+            }
+
+            /* 2. Identify Nth Root (y√x) */
+            if (token === '√') {
+                const isNthRoot =
+                    prevOriginal &&
+                    (!isNaN(prevOriginal) ||
+                    lookup[prevOriginal]?.args === 0 ||
+                    prevOriginal === ')');
+
+                if (isNthRoot) {
+                    token = 'y√x';
+                }
+            }
+
+            /* 3. Insert Implicit Multiplication */
+            if (prevTransformed && isLeftValue(prevTransformed) && isRightValue(token)) {
+                result.push('*');
+            }
+            result.push(token);
+        }
+
+        return result;
+    }
+
+    /* Tokenizer regex: (Lexer) */
+    const regex = /\d*\.\d+(?:e[+-]?\d+)?|\d+(?:e[+-]?\d+)?|[a-zA-Z\u0370-\u03FF\u221A]+|[+\-*/%^()]/gi;
+
+    /* Convert to RPN for easier evaluation */  
+    function evaluateRPN(rpn) {
+        const stack = [];
+
+        rpn.forEach(t => {
+            const item = lookup[t];
+
+            if (item && item.args > 0) {
+                if (stack.length < item.args) {
+                    throw new Error(`Insufficient operands for "${t}"`);
+                }
+
+                const args = [];
+                for (let i = 0; i < item.args; i++) {
+                    args.unshift(stack.pop());
+                }
+
+                const result = item.exec(...args);
+
+                if (!Number.isFinite(result)) {
+                    throw new Error(`Invalid result from "${t}"`);
+                }
+
+                stack.push(result);
+            } else {
+                const value = item && item.args === 0
+                    ? item.exec()
+                    : parseFloat(t);
+
+                if (Number.isNaN(value)) {
+                    throw new Error(`Invalid token "${t}"`);
+                }
+
+                stack.push(value);
+            }
+        });
+
+        if (stack.length !== 1) {
+            throw new Error("Invalid expression");
+        }
+
+        return stack[0];
+    }
+
+    function validateFunctionCalls(tokens) {
+        const identifierRegex = /^[a-zA-Z\u0370-\u03FF]+$/;
+
+        for (let i = 0; i < tokens.length; i++) {
+            const t = tokens[i];
+            const next = tokens[i + 1];
+            const entry = lookup[t];
+
+            const isIdentifier = identifierRegex.test(t);
+
+            /* Reject unknown identifiers (e.g., "now", "foo") */
+            if (isIdentifier && !entry) {
+                throw new Error(`Unknown identifier: ${t}`);
+            }
+
+            /* Ensure that functions are called with parentheses */
+            if (entry && entry.type === 'function') {
+                if (next !== '(') {
+                    throw new Error(`Function "${t}" must be followed by parentheses`);
+                }
+            }
+        }
+    }
+
+    function evaluate(expr) {
+        const tokens = expr.match(regex);
+        if (!tokens) {
+            throw new Error("Invalid or empty expression");
+        }
+        validateFunctionCalls(tokens);
+        const transformed = transformTokens(tokens);
+        const rpn = toRPN(transformed);
+        const result = evaluateRPN(rpn);
+
+        ans = result; /* Store last answer for Ans button */
+
         if (result !== 0 && (Math.abs(result) < 1e-9 || Math.abs(result) > 1e12)) return result.toPrecision(10);
         return Number(result.toFixed(10));
     }
