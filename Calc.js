@@ -190,7 +190,7 @@ javascript:(function() {
             const result = evaluate(input.value);
             output.value = result;
         } catch (err) {
-            output.value = 'Error: ' + err.message;
+            output.value = err.message;
         }
         input.focus();
     }
@@ -245,7 +245,7 @@ javascript:(function() {
         { label: 'sinh', onClick: () => insertAtCursor(input, 'sinh()') },
         { label: 'cosh', onClick: () => insertAtCursor(input, 'cosh()') },
         { label: 'tanh', onClick: () => insertAtCursor(input, 'tanh()') },
-        { label: '√', onClick: () => insertAtCursor(input, '√') },
+        { label: '√', onClick: () => insertAtCursor(input, '√()') },
         
     ],[
         /* Other Scientific Functions and Constants */
@@ -378,6 +378,35 @@ javascript:(function() {
         return x;
     }
 
+    /* To prevent errors a stable power option has been added */
+    function stablePow(a, b) {
+        /* Handle obvious edge cases first */
+        if (a === 1) return 1;
+        if (b === 0) return 1;
+        if (a === 0) return 0;
+
+        /* If values are safe, use native pow (fast path) */
+        if (Math.abs(a) > 1e-6 && Math.abs(b) < 1e6) {
+            const direct = Math.pow(a, b);
+            if (Number.isFinite(direct)) return direct;
+        }
+
+        /* Only valid for positive base in log form */
+        if (a > 0) {
+            const loga = Math.log(a);
+
+            /* If log(a) is very small, use log1p for precision */
+            if (Math.abs(a - 1) < 1e-8) {
+                return Math.exp(b * Math.log1p(a - 1));
+            }
+
+            return Math.exp(b * loga);
+        }
+
+        /* Fallback to native for negatives (complex cases avoided) */
+        return Math.pow(a, b);
+    }
+
     const lookup = {
     /* --- Constants (Arity 0) --- */
         'π':   {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
@@ -386,16 +415,16 @@ javascript:(function() {
         'ans': {type: 'constant', args: 0, assoc: null, exec: () => ans, prec: 0},
 
     /* --- Basic Operators (Arity 2) --- */
-        '+':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a + b, prec: 2 },
-        '-':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a - b, prec: 2 },
-        '*':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a * b, prec: 3 },
-        '/':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a / b, prec: 3 },
-        '%':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a % b, prec: 3,},
-        '^':   {type: 'operator', args: 2, assoc: 'r', exec: (a, b) => Math.pow(a, b), prec: 6,},
+        '+':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a + b, prec: 5 },
+        '-':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a - b, prec: 5 },
+        '*':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a * b, prec: 6 },
+        '/':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a / b, prec: 6 },
+        '%':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a % b, prec: 6,},
+        '^':   {type: 'operator', args: 2, assoc: 'r', exec: (a, b) => stablePow(a, b), prec: 9,},
 
     /* --- Unary Operators (Arity 1) --- */
-        '-u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => -x, prec: 4 },
-        '+u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => +x, prec: 4 },
+        '-u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => -x, prec: 7 },
+        '+u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => +x, prec: 7 },
 
     /* --- Absolute Value (Arity 1) --- */
         'abs': {type: 'function', args: 1, assoc: null, exec: (x) => Math.abs(x), prec: 10 },
@@ -450,6 +479,14 @@ javascript:(function() {
                 if (x <= 0) throw new Error("log domain error");
                 return Math.log10(x);
             }, prec: 10 },
+        'log10':{type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x <= 0) throw new Error("log domain error");
+                return Math.log10(x);
+            }, prec: 10 },
+        'log2':{type: 'function', args: 1, assoc: null, exec: (x) => {
+                if (x <= 0) throw new Error("log domain error");
+                return Math.log(x)/Math.log(2);
+            }, prec: 10 },
         'ln':   {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x <= 0) throw new Error("ln domain error");
                 return Math.log(x); 
@@ -461,14 +498,30 @@ javascript:(function() {
                 if (x < 0) throw new Error("Square root domain error");
                 return Math.sqrt(x);
             }, prec: 10 },
-        '√':    {type: 'operator', args: 1, assoc: null, exec: (x) => {
+        '√':    {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x < 0) throw new Error("Square root domain error");
                 return Math.sqrt(x);
-            }, prec: 4 },
-        'y√x':  {type: 'operator', args: 2, assoc: null, exec: (y, x) => {
+            }, prec: 8 },
+        'y√x':  {type: 'function', args: 2, assoc: null, exec: (y, x) => {
                 if (x < 0 && y % 2 === 0) throw new Error("Square root domain error");
                 return Math.pow(x, 1/y);
-            }, prec: 4 },
+            }, prec: 8 },
+    /* --- Bitwise Operations --- */
+        '&':   {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x & y, prec: 3},
+        'and': {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x & y, prec: 3},
+
+        '|':   {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x | y, prec: 1},
+        'or':  {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x | y, prec: 1},
+
+        '⊕': {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x ^ y, prec: 2},
+        'xor': {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x ^ y, prec: 2},
+
+        '~':   {type: 'operator', args: 1, assoc: 'r', exec: (x) => ~x, prec: 7},
+        'not': {type: 'operator', args: 1, assoc: 'r', exec: (x) => ~x, prec: 7},
+
+        '<<':  {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x << y, prec: 4},
+        '>>':  {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x >> y, prec: 4},
+        '>>>': {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x >>> y, prec: 4},
     };
 
     function toRPN(tokens) {
@@ -601,7 +654,21 @@ javascript:(function() {
     }
 
     /* Tokenizer regex: (Lexer) */
-    const regex = /\d*\.\d+(?:e[+-]?\d+)?|\d+(?:e[+-]?\d+)?|[a-zA-Z\u0370-\u03FF\u221A]+|[+\-*/%^()]/gi;
+    function buildRegex(lookup) {
+        const tokens = Object.keys(lookup)
+            .filter(k => k.length > 0)
+            .sort((a, b) => b.length - a.length); /* longest first */
+
+        /* escape any tokens which need it */
+        const escaped = tokens.map(t =>
+            t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        );
+
+        /* build the regex */
+        return new RegExp(`\\d*\\.\\d+(?:e[+-]?\\d+)?|\\d+(?:e[+-]?\\d+)?|${escaped.join('|')}|[()]`,'gi');
+    }
+
+    const regex = buildRegex(lookup);
 
     /* Convert to RPN for easier evaluation */  
     function evaluateRPN(rpn) {
