@@ -378,6 +378,61 @@ javascript:(function() {
         return x;
     }
 
+    function gamma(z) {
+        if (!Number.isFinite(z)) {
+            throw new Error("Gamma: non-finite input");
+        }
+
+        const PI = Math.PI;
+
+
+        /* Pole detection (critical) Gamma is undefined at 0, -1, -2, ... */
+
+        if (z <= 0 && Math.abs(z - Math.round(z)) < 1e-15) {
+            throw new Error("Gamma pole (non-positive integer)");
+        }
+
+        /* 2. Reflection for z < 0.5 Γ(z) = π / (sin(πz) * Γ(1 - z)) */
+
+        if (z < 0.5) {
+            const sinTerm = Math.sin(PI * z);
+
+            /* Avoid catastrophic blow-up near poles */
+            if (Math.abs(sinTerm) < 1e-15) {
+                /* asymptotic fallback near poles */
+                return 1 / z;
+            }
+
+            return PI / (sinTerm * gamma(1 - z));
+        }
+
+
+        /* Lanczos approximation (g=7, n=9) */
+        const p = [
+            0.99999999999980993,
+            676.5203681218851,
+            -1259.1392167224028,
+            771.32342877765313,
+            -176.61502916214059,
+            12.507343278686905,
+            -0.13857109526572012,
+            9.9843695780195716e-6,
+            1.5056327351493116e-7
+        ];
+
+        const g = 7;
+        z -= 1;
+
+        let x = p[0];
+        for (let i = 1; i < p.length; i++) {
+            x += p[i] / (z + i);
+        }
+
+        const t = z + g + 0.5;
+
+        return Math.sqrt(2 * PI) * Math.exp((z + 0.5) * Math.log(t) - t) * x;
+    }
+
     /* To prevent errors a stable power option has been added */
     function stablePow(a, b) {
         /* Handle obvious edge cases first */
@@ -425,14 +480,16 @@ javascript:(function() {
     /* --- Unary Operators (Arity 1) --- */
         '-u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => -x, prec: 7 },
         '+u':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => +x, prec: 7 },
+        '-x':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => -x, prec: 20 },
+        '+x':  {type: 'operator', args: 1, assoc: 'r', exec: (x) => +x, prec: 20 },
 
     /* --- Absolute Value (Arity 1) --- */
-        'abs': {type: 'function', args: 1, assoc: null, exec: (x) => Math.abs(x), prec: 10 },
+        'abs': {type: 'function', args: 1, assoc: null, exec: (x) => Math.abs(x), prec: 20 },
 
     /* --- Scientific Functions (Arity 1) --- */
-        'sin': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sin(x)), prec: 10 },
-        'cos': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cos(x)), prec: 10 },
-        'tan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tan(x)), prec: 10 },
+        'sin': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sin(x)), prec: 20 },
+        'cos': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cos(x)), prec: 20 },
+        'tan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tan(x)), prec: 20 },
     /* --- reciprocal trigonometric functions (Arity 1) --- */
         'csc': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 const s = Math.sin(x);
@@ -440,64 +497,64 @@ javascript:(function() {
                     throw new Error('csc undefined: sin(x) = 0');
                 }
                 return 1 / s;
-            }, prec: 10 },
+            }, prec: 20 },
         'sec': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 const c = normalizeTrig(Math.cos(x));
                 if (Math.abs(c) < EPSILON) {
                     throw new Error('sec undefined: cos(x) = 0');
                 }
                 return 1 / c;
-            }, prec: 10 },
+            }, prec: 20 },
         'cot': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 const t = normalizeTrig(Math.tan(x));
                 if (Math.abs(t) < EPSILON) {
                     throw new Error('cot undefined: tan(x) = 0');
                 }
                 return 1 / t;
-            }, prec: 10 },
+            }, prec: 20 },
     /* --- Inverse Trigonometric Functions (Arity 1) --- */
         'asin': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x < -1 || x > 1) {
                     throw new Error('asin domain error: input must be in [-1, 1]');
                 }
                 return normalizeTrig(Math.asin(x));
-            }, prec: 10 },
+            }, prec: 20 },
         'acos': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x < -1 || x > 1) {
                     throw new Error('acos domain error: input must be in [-1, 1]');
                 }
                 return normalizeTrig(Math.acos(x));
-            }, prec: 10 },
-        'atan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.atan(x)), prec: 10 },
+            }, prec: 20 },
+        'atan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.atan(x)), prec: 20 },
     /* --- Hyperbolic Functions (Arity 1) --- */
-        'sinh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sinh(x)), prec: 10 },
-        'cosh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cosh(x)), prec: 10 },
-        'tanh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tanh(x)), prec: 10 },
+        'sinh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sinh(x)), prec: 20 },
+        'cosh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cosh(x)), prec: 20 },
+        'tanh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tanh(x)), prec: 20 },
 
     /* --- Logarithmic and Exponential Functions (Arity 1) --- */
         'log':{type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x <= 0) throw new Error("log domain error");
                 return Math.log10(x);
-            }, prec: 10 },
+            }, prec: 20 },
         'log10':{type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x <= 0) throw new Error("log domain error");
                 return Math.log10(x);
-            }, prec: 10 },
+            }, prec: 20 },
         'log2':{type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x <= 0) throw new Error("log domain error");
                 return Math.log(x)/Math.log(2);
-            }, prec: 10 },
+            }, prec: 20 },
         'ln':   {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x <= 0) throw new Error("ln domain error");
                 return Math.log(x); 
-            }, prec: 10 },
-        'exp':  {type: 'function', args: 1, assoc: null, exec: (x) => Math.exp(x), prec: 10 },
+            }, prec: 20 },
+        'exp':  {type: 'function', args: 1, assoc: null, exec: (x) => Math.exp(x), prec: 20 },
 
     /* --- Square Root (Arity 1 or 2) --- */
         'sqrt': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x < 0) throw new Error("Square root domain error");
                 return Math.sqrt(x);
-            }, prec: 10 },
+            }, prec: 20 },
         '√':    {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x < 0) throw new Error("Square root domain error");
                 return Math.sqrt(x);
@@ -522,6 +579,75 @@ javascript:(function() {
         '<<':  {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x << y, prec: 4},
         '>>':  {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x >> y, prec: 4},
         '>>>': {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x >>> y, prec: 4},
+
+    /* probability */
+        '!': {type: 'operator', args: 1, assoc: 'l', exec: (n) => {
+                if (!Number.isFinite(n)) throw new Error("Invalid input");
+
+                /* Precise Integer Path */
+                if (Number.isInteger(n)) {
+                    if (n < 0) throw new Error("Factorial undefined for negative integers");
+
+                    /* compute exact result */
+                    if (n <= 20) {
+                        let r = 1;
+                        for (let i = 2; i <= n; i++) r *= i;
+                        return r;
+                    }
+                }
+
+                /* non integer aproximation */
+                return gamma(n + 1);
+            }, prec: 20, postfix: true },
+        
+        /* special case of !! which is diffrent from ! */
+        '!!': { type: 'operator', args: 1, assoc: 'l', 
+            exec: (n) => {
+                if (!Number.isInteger(n) || n < 0) {
+                    throw new Error("Double factorial requires non-negative integer");
+                }
+                let res = 1;
+                for (let i = n; i > 0; i -= 2) res *= i;
+                return res;
+            }, prec: 20, postfix: true },
+
+        'nPr': {type: 'operator', args: 2, assoc: 'l', exec: (n, r) => {
+            if (!Number.isInteger(n) || !Number.isInteger(r)) {
+                throw new Error("nPr requires integers");
+            }
+            if (n < 0 || r < 0 || r > n) {
+                throw new Error("nPr domain error");
+            }
+
+            let result = 1;
+            for (let i = 0; i < r; i++) {
+                result *= (n - i);
+            }
+            return result;
+        }, prec: 7},  /* similar to * and / */
+
+        'nCr': { type: 'operator', args: 2, assoc: 'l',
+            exec: (n, r) => {
+                if (!Number.isInteger(n) || !Number.isInteger(r)) {
+                    throw new Error("nCr requires integers");
+                }
+                if (n < 0 || r < 0 || r > n) {
+                    throw new Error("nCr domain error");
+                }
+
+                /* symmetry optimization */
+                r = Math.min(r, n - r);
+
+                let numerator = 1;
+                let denominator = 1;
+
+                for (let i = 1; i <= r; i++) {
+                    numerator *= (n - (r - i));
+                    denominator *= i;
+                }
+
+                return numerator / denominator;
+            }, prec: 7},
     };
 
     function toRPN(tokens) {
@@ -617,16 +743,20 @@ javascript:(function() {
             const prevOriginal = tokens[i - 1];
             const prevTransformed = result[result.length - 1];
 
-
             /* Identify Unary Plus/Minus */
             if (token === '+' || token === '-') {
                 const isUnary =
                     !prevOriginal ||
                     prevOriginal === '(' ||
-                    (lookup[prevOriginal]?.args > 0 && prevOriginal !== ')');
+                    (lookup[prevOriginal]?.args > 0 &&
+                        prevOriginal !== ')' &&
+                        !lookup[prevOriginal]?.postfix );
 
                 if (isUnary) {
-                    token = token === '-' ? '-u' : '+u';
+                    if (lookup[prevOriginal]?.assoc === 'r')
+                        token = token === '-' ? '-x' : '+x';
+                    else
+                        token = token === '-' ? '-u' : '+u';
                 }
             }
 
