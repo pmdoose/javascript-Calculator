@@ -506,6 +506,7 @@ javascript:(function() {
     /* --- Constants (Arity 0) --- */
         'π':   {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
         'pi':  {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
+        'tau': {type: 'constant', args: 0, assoc: null, exec: () => Math.PI * 2, prec: 0},
         'e':   {type: 'constant', args: 0, assoc: null, exec: () => Math.E, prec: 0},
         'Ans': {type: 'constant', args: 0, assoc: null, exec: () => ans, prec: 0},
 
@@ -764,7 +765,7 @@ javascript:(function() {
             if (lookup[token]?.args === 0) return true;
             if (token === '(') return true;
             if (token === 'y√x') return false; /* special case: y√x is left-associative and should not trigger implicit multiplication */
-            if (lookup[token]?.args > 0 && lookup[token]?.prec === 10) return true;
+            if (lookup[token]?.type === 'function') return true;
             return false;
         };
 
