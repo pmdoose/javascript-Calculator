@@ -224,6 +224,7 @@ javascript:(function() {
     }
 
     let ans = 0; /* Store last answer for Ans button */
+    let trig_fact = Math.PI/180; /* factor to convert between radians and degrees */
 
     /* Define scientific buttons */
     const sciButtons = [[
@@ -231,7 +232,15 @@ javascript:(function() {
         { label: 'sin', onClick: () => insertAtCursor(input, 'sin()') },
         { label: 'cos', onClick: () => insertAtCursor(input, 'cos()') },
         { label: 'tan', onClick: () => insertAtCursor(input, 'tan()') },
-        { label: 'log', onClick: () => insertAtCursor(input, 'log()') },
+        { label: 'Deg', onClick: (e) => {
+            if (trig_fact === 1) {
+                e.currentTarget.innerText = "Deg";
+                trig_fact = Math.PI/180;
+            } else {
+                e.currentTarget.innerText  = "Rad";
+                trig_fact = 1;
+            }
+        }},
         
     ],[
         /* Reciprocal Trigonometric Functions (Arity 1) */
@@ -245,8 +254,9 @@ javascript:(function() {
         { label: 'sinh', onClick: () => insertAtCursor(input, 'sinh()') },
         { label: 'cosh', onClick: () => insertAtCursor(input, 'cosh()') },
         { label: 'tanh', onClick: () => insertAtCursor(input, 'tanh()') },
-        { label: '√', onClick: () => insertAtCursor(input, '√()') },
+        { label: 'log', onClick: () => insertAtCursor(input, 'log()') },
         
+
     ],[
         /* Other Scientific Functions and Constants */
         { label: 'xʸ', onClick: () => insertAtCursor(input, '^') },
@@ -255,10 +265,10 @@ javascript:(function() {
         { label: 'exp', onClick: () => insertAtCursor(input, 'exp()') }
     ],[
         /* Absolute Value, Parentheses, and Ans */
-        { label: 'abs', onClick: () => insertAtCursor(input, 'abs()') },
+        { label: '√', onClick: () => insertAtCursor(input, '√()') },
         { label: '(', onClick: () => insertAtCursor(input, '(') },
         { label: ')', onClick: () => insertAtCursor(input, ')') },
-        { label: 'Ans', onClick: () => insertAtCursor(input, 'ans') }
+        { label: 'Ans', onClick: () => insertAtCursor(input, 'Ans') }
     ]];
 
     /* Create basic buttons */
@@ -462,12 +472,42 @@ javascript:(function() {
         return Math.pow(a, b);
     }
 
+    function logMultifactorial(n, k) {
+        let sum = 0;
+        for (let i = n; i > 1; i -= k) {
+            sum += Math.log(i);
+        }
+        return sum;
+    }
+
+    function nfactorial(n, r) {
+        if (!Number.isInteger(n) || n < 0 || r <= 0) {
+            throw new Error("Factorials require non-negative integer n and positive step r");
+        }
+
+        /* Base case for 0 and 1 */
+        if (n <= 1) return 1;
+
+        /* Accuracy Check: If n is small, multiply directly to avoid log rounding errors */
+        if (n <= 170) {
+            let result = 1;
+            for (let i = n; i > 1; i -= r) {
+                result *= i;
+            }
+            return result;
+        }
+
+        /* Fallback to Log method for very large results to avoid immediate Infinity */
+        const logResult = logMultifactorial(n, r);
+        return Math.exp(logResult);
+    }
+
     const lookup = {
     /* --- Constants (Arity 0) --- */
         'π':   {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
         'pi':  {type: 'constant', args: 0, assoc: null, exec: () => Math.PI, prec: 0},
         'e':   {type: 'constant', args: 0, assoc: null, exec: () => Math.E, prec: 0},
-        'ans': {type: 'constant', args: 0, assoc: null, exec: () => ans, prec: 0},
+        'Ans': {type: 'constant', args: 0, assoc: null, exec: () => ans, prec: 0},
 
     /* --- Basic Operators (Arity 2) --- */
         '+':   {type: 'operator', args: 2, assoc: 'l', exec: (a, b) => a + b, prec: 5 },
@@ -487,26 +527,27 @@ javascript:(function() {
         'abs': {type: 'function', args: 1, assoc: null, exec: (x) => Math.abs(x), prec: 20 },
 
     /* --- Scientific Functions (Arity 1) --- */
-        'sin': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sin(x)), prec: 20 },
-        'cos': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cos(x)), prec: 20 },
-        'tan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tan(x)), prec: 20 },
+        'sin': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sin(x*trig_fact)), prec: 20 },
+        'cos': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cos(x*trig_fact)), prec: 20 },
+        'tan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tan(x*trig_fact)), prec: 20 },
+
     /* --- reciprocal trigonometric functions (Arity 1) --- */
         'csc': {type: 'function', args: 1, assoc: null, exec: (x) => {
-                const s = Math.sin(x);
+                const s = normalizeTrig(Math.sin(x*trig_fact));
                 if (Math.abs(s) < EPSILON) {
                     throw new Error('csc undefined: sin(x) = 0');
                 }
                 return 1 / s;
             }, prec: 20 },
         'sec': {type: 'function', args: 1, assoc: null, exec: (x) => {
-                const c = normalizeTrig(Math.cos(x));
+                const c = normalizeTrig(Math.cos(x*trig_fact));
                 if (Math.abs(c) < EPSILON) {
                     throw new Error('sec undefined: cos(x) = 0');
                 }
                 return 1 / c;
             }, prec: 20 },
         'cot': {type: 'function', args: 1, assoc: null, exec: (x) => {
-                const t = normalizeTrig(Math.tan(x));
+                const t = normalizeTrig(Math.tan(x*trig_fact));
                 if (Math.abs(t) < EPSILON) {
                     throw new Error('cot undefined: tan(x) = 0');
                 }
@@ -517,19 +558,19 @@ javascript:(function() {
                 if (x < -1 || x > 1) {
                     throw new Error('asin domain error: input must be in [-1, 1]');
                 }
-                return normalizeTrig(Math.asin(x));
+                return normalizeTrig(Math.asin(x)/trig_fact);
             }, prec: 20 },
         'acos': {type: 'function', args: 1, assoc: null, exec: (x) => {
                 if (x < -1 || x > 1) {
                     throw new Error('acos domain error: input must be in [-1, 1]');
                 }
-                return normalizeTrig(Math.acos(x));
+                return normalizeTrig(Math.acos(x)/trig_fact);
             }, prec: 20 },
-        'atan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.atan(x)), prec: 20 },
+        'atan': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.atan(x)/trig_fact), prec: 20 },
     /* --- Hyperbolic Functions (Arity 1) --- */
-        'sinh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sinh(x)), prec: 20 },
-        'cosh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cosh(x)), prec: 20 },
-        'tanh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tanh(x)), prec: 20 },
+        'sinh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.sinh(x*trig_fact)), prec: 20 },
+        'cosh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.cosh(x*trig_fact)), prec: 20 },
+        'tanh': {type: 'function', args: 1, assoc: null, exec: (x) => normalizeTrig(Math.tanh(x*trig_fact)), prec: 20 },
 
     /* --- Logarithmic and Exponential Functions (Arity 1) --- */
         'log':{type: 'function', args: 1, assoc: null, exec: (x) => {
@@ -581,36 +622,26 @@ javascript:(function() {
         '>>>': {type: 'operator', args: 2, assoc: 'l', exec: (x, y) => x >>> y, prec: 4},
 
     /* probability */
-        '!': {type: 'operator', args: 1, assoc: 'l', exec: (n) => {
-                if (!Number.isFinite(n)) throw new Error("Invalid input");
-
-                /* Precise Integer Path */
-                if (Number.isInteger(n)) {
-                    if (n < 0) throw new Error("Factorial undefined for negative integers");
-
-                    /* compute exact result */
-                    if (n <= 20) {
-                        let r = 1;
-                        for (let i = 2; i <= n; i++) r *= i;
-                        return r;
-                    }
-                }
-
-                /* non integer aproximation */
-                return gamma(n + 1);
-            }, prec: 20, postfix: true },
-        
-        /* special case of !! which is diffrent from ! */
-        '!!': { type: 'operator', args: 1, assoc: 'l', 
-            exec: (n) => {
+        '!': {type: 'operator', args: 2, assoc: 'l', exec: (n,k) => {
                 if (!Number.isInteger(n) || n < 0) {
-                    throw new Error("Double factorial requires non-negative integer");
+                    /* Handle non-integers using Gamma if it's a single factorial */
+                    if (k === 1) return gamma(n + 1);
+                    throw new Error("Multifactorial requires non-negative integer");
                 }
-                let res = 1;
-                for (let i = n; i > 0; i -= 2) res *= i;
-                return res;
-            }, prec: 20, postfix: true },
+                
+                if (k <= 0) throw new Error("Invalid multifactorial step");
 
+                /* Use nfactorial; it will naturally return Infinity if it exceeds 1.79e308 */
+                const result = nfactorial(n, k);
+                
+                if (!Number.isFinite(result)) {
+                    /* If k=1, we can try to stay precise with Gamma, otherwise it's just Infinity */
+                    return k === 1 ? gamma(n + 1) : Infinity;
+                }
+
+                return result;
+            }, prec: 20, postfix: true},
+        
         'nPr': {type: 'operator', args: 2, assoc: 'l', exec: (n, r) => {
             if (!Number.isInteger(n) || !Number.isInteger(r)) {
                 throw new Error("nPr requires integers");
@@ -773,6 +804,16 @@ javascript:(function() {
                 }
             }
 
+            /* special case for factorials */
+            if (token.startsWith('!')) {
+                let count = token.length; /* Count the '!' in this specific token */
+
+                /* inject as binary operator: n ! k */
+                result.push('!');
+                result.push(String(count));
+                continue;
+            }
+
             /* Insert Implicit Multiplication */
             if (prevTransformed && isLeftValue(prevTransformed) && isRightValue(token)) {
                 result.push('*');
@@ -795,7 +836,7 @@ javascript:(function() {
         );
 
         /* build the regex */
-        return new RegExp(`\\d*\\.\\d+(?:e[+-]?\\d+)?|\\d+(?:e[+-]?\\d+)?|${escaped.join('|')}|[()]`,'gi');
+        return new RegExp(`\\d*\\.\\d+(?:e[+-]?\\d+)?|\\d+(?:e[+-]?\\d+)?|!+|${escaped.join('|')}|[()]`,'gi');
     }
 
     const regex = buildRegex(lookup);
